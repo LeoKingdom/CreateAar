@@ -348,7 +348,7 @@ public class BluetoothHelper {
 //                Log.e("bleName===", device.getName() + "");
                 double distance = getDistance(device.getRssi());
 //                Log.e("info1----", device.getMac() + "/" + device.getRssi() + "/" + distance);
-                if (device.getRssi() == 0 || distance > 5) {
+                if (device.getRssi() == 0 || distance > 5||device.getRssi()>=-62) {
                     reconnectListener.onDeviceAway(device);
                 }
 
