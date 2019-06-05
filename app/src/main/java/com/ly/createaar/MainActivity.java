@@ -16,13 +16,13 @@ import com.ly.bluetoothhelper.BluetoothHelper;
 
 public class MainActivity extends AppCompatActivity {
 
-    private BluetoothHelper bluetoothHelper;
+    private VirtualLeashHelper bluetoothHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        bluetoothHelper = BluetoothHelper.getBluetoothHelper().initProperties(getApplication());
+        bluetoothHelper = VirtualLeashHelper.getInstance().init(getApplication());
 //        myHandler = new MyHandler(this);
         checkLocation();
     }
@@ -48,103 +48,51 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void scan(View view) {
-        bluetoothHelper.scanAndConnect(true,null, "Family watch ");
-        bluetoothHelper.setBleHandleListener(bleHandleListener);
-        bluetoothHelper.setReconnectListener(new BluetoothHelper.BleReconnectListener() {
-            @Override
-            public void onReconnectSuccess(BleDevice device) {
-                Log.e("reConnOk===",device.getName()+"");
+        bluetoothHelper.openVirtualLeash(true, null, "Family watch ");
+        bluetoothHelper.openReconnectListen();
+        bluetoothHelper.setScanStartListener(() -> {
+            Log.e("scanStart---", "run");
+        });
+        bluetoothHelper.setScanFinishListener((bleDevice) -> {
+            if (bleDevice != null) {
+                Log.e("scanFinish---", bleDevice.getName() + "");
             }
+        });
 
-            @Override
-            public void onReconnectFail(BleDevice bleDevice) {
-                Log.e("reConnFail===",bleDevice.getName()+"");
+        bluetoothHelper.setConnectSuccessListener((bleDevice, gatt) -> {
+            if (bleDevice != null) {
+                Log.e("connectSuccess---", bleDevice.getName() + "");
             }
+        });
 
-            @Override
-            public void onBleDisable() {
-
+        bluetoothHelper.setConnectFailListener((bleDevice, description) -> {
+            if (bleDevice != null) {
+                Log.e("connectFail---", bleDevice.getName() + "");
             }
+        });
 
-            @Override
-            public void onDeviceAway(BleDevice device) {
-                Log.e("deviceAway===",device.getName()+"");
+        bluetoothHelper.setReconnectSuccessListener((bleDevice) -> {
+            if (bleDevice != null) {
+                Log.e("reconnectSuccess---", bleDevice.getName() + "");
+            }
+        });
+
+        bluetoothHelper.setReconnectFailListener((bleDevice -> {
+            if (bleDevice != null) {
+                Log.e("reconnectFail---", bleDevice.getName() + "");
+            }else {
+                Log.e("reconnectFail---",  "ensure  your device and tracker's bluetooth is open ,and tracker is around you");
+            }
+        }));
+        bluetoothHelper.setDeviceSelfDisableListener(() -> {
+            Log.e("bluetooth---", "is close");
+        });
+        bluetoothHelper.setDeviceAwayListener((bleDevice) -> {
+            if (bleDevice != null) {
+                Log.e("tracker---", bleDevice.getName() + "is run away");
             }
         });
     }
 
-    BluetoothHelper.BleHandleListener bleHandleListener = new BluetoothHelper.BleHandleListener() {
-        @Override
-        public void onScanStarted(boolean success) {
-            if (success) {
-                // Todo show searching dialog
-//                SendEventBusBean eventBusBean=new SendEventBusBean();
-//                eventBusBean.setAction("ble.scan.start");
-//                EventBusUtils.post(eventBusBean);
-//                Intent intent = new Intent();
-//                intent.setPackage("com.trackerandroid.trackerandroid"); //9.0静态注册的广播必须为定向广播,否则无法接收
-//                intent.setAction("ble.scan.start");
-//                sendBroadcast(intent);
-            }
-        }
 
-        @Override
-        public void onScanning() {
-
-        }
-
-        @Override
-        public void onScanFinished(BleDevice bleDevice) {
-//            SendEventBusBean intent = new SendEventBusBean();
-//
-//            intent.setAction("ble.scan.finish");
-//            intent.setBleDevice( bleDevice);
-//            EventBusUtils.post(intent);
-
-            if (bleDevice == null) {
-                // Todo no device found,hide searching dialog
-                BleLog.e("no device was found");
-
-            } else {
-                BleLog.e("scanDevice---: " + bleDevice.getName() + "/" + bleDevice.getMac());
-            }
-        }
-
-        @Override
-        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
-            BleLog.e("connDevice---: " + bleDevice.getName() + "/" + bleDevice.getMac());
-//            connDeviceMap.put(bleDevice.getMac(),bleDevice);
-//            SendEventBusBean intent = new SendEventBusBean();
-//            intent.setAction("ble.conn.success");
-//            intent.setBleDevice( bleDevice);
-//            EventBusUtils.post(intent);
-
-        }
-
-        @Override
-        public void onConnectFailed(BleDevice bleDevice, String description) {
-//            SendEventBusBean intent = new SendEventBusBean();
-//            intent.setAction("ble.conn.success");
-//            intent.setBleDevice( bleDevice);
-//            EventBusUtils.post(intent);
-
-        }
-
-        @Override
-        public void onDisconnect(BleDevice device, BluetoothGatt gatt) {
-//            SendEventBusBean intent = new SendEventBusBean();
-//            intent.setAction("ble.disconnect");
-//            intent.setBleDevice( device);
-//            EventBusUtils.post(intent);
-//            if (device!=null) {
-//                disConnDeviceMap.put(device.getMac(),device);
-//                connDeviceMap.remove(device);
-//                Intent intent = new Intent();
-//                intent.setPackage("com.trackerandroid.trackerandroid");
-//                intent.setAction("ble.disconnect");
-//                intent.putExtra("device", device);
-//                sendBroadcast(intent);
-//            }
-        }
-    };
 }

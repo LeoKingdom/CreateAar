@@ -58,40 +58,8 @@ public class BluetoothHelper {
     private BleManager bleManager;
     private BleUuidHelper uuidHelper;
 
-    public Map<String, BleDevice> getConnDeviceMap() {
-        return connDeviceMap;
-    }
-
-    public Map<String, BleDevice> getDisConnDeviceMap() {
-        return disConnDeviceMap;
-    }
-
-    private Map<String, BleDevice> connDeviceMap = new HashMap<>();
-    private Map<String, BleDevice> disConnDeviceMap = new HashMap<>();
-
-    public Map<String, Integer> getReconnCountMap() {
-        return reconnCountMap;
-    }
-
-    public void setReconnCountMap(Map<String, Integer> reconnCountMap) {
-        this.reconnCountMap = reconnCountMap;
-    }
-
-    private Map<String, Integer> reconnCountMap = new HashMap<>();
-
-    private BluetoothHelper() {
+    public BluetoothHelper() {
         bleManager = BleManager.getInstance();
-    }
-
-    public static BluetoothHelper getBluetoothHelper() {
-        if (bluetoothHelper == null) {
-            synchronized (BluetoothHelper.class) {
-                if (bluetoothHelper == null) {
-                    bluetoothHelper = new BluetoothHelper();
-                }
-            }
-        }
-        return bluetoothHelper;
     }
 
     public BleManager getBleManager() {
@@ -184,6 +152,10 @@ public class BluetoothHelper {
         bleManager.connect(bleDevice, gattCallback);
     }
 
+    public void onReadRssi(BleDevice bleDevice){
+        bleManager.readRssi(bleDevice,bleRssiCallback);
+    }
+
 
     /**
      * 扫描监听
@@ -273,57 +245,13 @@ public class BluetoothHelper {
                 bleHandleListener.onConnectFailed(bleDevice, exception.getDescription());
             }
 
-            if (reconnectListener != null && disConnDeviceMap.size() > 0) {
 
-                if (disConnDeviceMap.containsKey(bleDevice.getName())) {
-                    reconnectListener.onReconnectFail(bleDevice);
-                }
-//                if (disConnDeviceMap.containsKey(bleDevice.getMac())) {
-//                    reconnectListener.onReconnectFail(bleDevice);
-//                }
-
-//                try {
-////                    BleDevice device = disConnDeviceMap.get(bleDevice.getMac());
-//                    BleDevice device = disConnDeviceMap.get(bleDevice.getName());
-//                    int rssi = device == null ? 0 : device.getRssi();
-//                    double distance = getDistance(rssi);
-//                    Log.e("info----", bleDevice.getMac() + "/" + rssi + "/" + distance + "/" + bleDevice.getRssi());
-//                    if (bleDevice.getRssi() == 0 || distance > 5) {
-//                        reconnectListener.onDeviceAway(bleDevice);
-//                    }
-//                } catch (NullPointerException e) {
-//                    Log.e("Rssi---", "Rssi get from a null object");
-//                }
-
-            }
 
         }
 
         @Override
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
-            if (reconnectListener != null) {
-                if (reconnSate && disConnDeviceMap.containsKey(bleDevice.getName())) {
-                    reconnSate = false;
-                    reconnectListener.onReconnectSuccess(bleDevice);
-                    Log.e("reconnSuRssi----", bleDevice.getRssi() + "");
-                }
-            }
-//            connDeviceMap.put(bleDevice.getMac(),bleDevice);
-//            reconnCountMap.put(bleDevice.getMac(),bleManager.getReConnectCount());
-            for (Map.Entry<String, BleDevice> entry : disConnDeviceMap.entrySet()) {
-                //测试使用name,因为mac地址一直改变
-//                if (entry.getKey().equals(bleDevice.getMac())){
-//                    disConnDeviceMap.remove(entry.getKey());
-//                }
-                if (entry.getKey().equals(bleDevice.getName())) {
-                    disConnDeviceMap.remove(entry.getKey());
-                }
-            }
-            ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
-            Message message = handler.obtainMessage();
-            message.what = 1;
-            message.obj = bleDevice.getName();
-            handler.sendMessage(message);
+
             if (bleHandleListener != null) {
                 bleHandleListener.onConnectSuccess(bleDevice, gatt, status);
             }
@@ -332,30 +260,12 @@ public class BluetoothHelper {
 
         @Override
         public void onDisConnected(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt, int status) {
-            Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi());
-            reconnSate = true;
-//            disConnDeviceMap.put(device.getMac(), device);
-            disConnDeviceMap.put(device.getName(), device); //测试
-            scanAndConnect(true, null, device.getName());
-            ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
-            handler.sendEmptyMessageDelayed(0, bleManager.getReConnectCount() * bleManager.getReConnectInterval());
+
 //            new ReconnectHelper().reconnListening();
             if (bleHandleListener != null) {
                 bleHandleListener.onDisconnect(device, gatt);
             }
-            if (reconnSate && reconnectListener != null) {
 
-//                Log.e("bleName===", device.getName() + "");
-                double distance = getDistance(device.getRssi());
-//                Log.e("info1----", device.getMac() + "/" + device.getRssi() + "/" + distance);
-                if (device.getRssi() == 0 || distance > 5||device.getRssi()>=-62) {
-                    reconnectListener.onDeviceAway(device);
-                }
-
-                if (!bleManager.isBlueEnable()) {
-                    reconnectListener.onBleDisable();
-                }
-            }
         }
 
         @Override
@@ -372,15 +282,28 @@ public class BluetoothHelper {
             }
         }
 
+
     };
 
-    public double getDistance(int rssi) {
-        int iRssi = Math.abs(rssi);
-        double power = (iRssi - 60) / (10 * 2.0);
-        return Math.pow(10, power);
-    }
 
-    private boolean reconnSate = false;
+    private BleRssiCallback bleRssiCallback = new BleRssiCallback() {
+        @Override
+        public void onRssiFailure(BleException exception) {
+            if (rssiListener!=null){
+                rssiListener.onRssiFailure(exception);
+            }
+        }
+
+        @Override
+        public void onRssiSuccess(int rssi) {
+            if (rssiListener!=null){
+                rssiListener.onRemoteRssi(rssi);
+            }
+        }
+    };
+
+
+
 
     public void checkGpsAndOpen(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
