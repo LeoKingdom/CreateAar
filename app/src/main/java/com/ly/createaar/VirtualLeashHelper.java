@@ -50,12 +50,12 @@ public class VirtualLeashHelper {
     }
 
     private VirtualLeashHelper() {
-        bluetoothHelper = new BluetoothHelper();
+
         bleManager = bluetoothHelper.getBleManager();
     }
 
     public VirtualLeashHelper init(Application application) {
-        bluetoothHelper.initProperties(application);
+        bluetoothHelper = new BluetoothHelper(application);
         return this;
     }
 
@@ -71,12 +71,11 @@ public class VirtualLeashHelper {
     }
 
     public void openVirtualLeash(boolean isFuzzy, String address, String name) {
-        bluetoothHelper.scanAndConnect(isFuzzy, address, name);
-        bluetoothHelper.setBleHandleListener(bleHandleListener);
+        bluetoothHelper.scanAndConnect(isFuzzy, address, name,bleHandleListener);
     }
 
     public void openReconnectListen() {
-        bluetoothHelper.setReconnectListener(mReconnectListener);
+
     }
 
     BluetoothHelper.BleHandleListener bleHandleListener = new BluetoothHelper.BleHandleListener() {
@@ -110,6 +109,7 @@ public class VirtualLeashHelper {
         @Override
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
             connDeviceMap.put(bleDevice.getName(), bleDevice);
+            connDeviceRssiMap.put(bleDevice.getName(), bleDevice.getRssi());
             readRssi();
             if (connectSuccessListener != null) {
                 connectSuccessListener.connectSuccess(bleDevice, gatt);
@@ -117,8 +117,7 @@ public class VirtualLeashHelper {
             if (reconnSate) {
                 if (disConnDeviceMap.containsKey(bleDevice.getName())) {
                     reconnSate = false;
-                    mReconnectListener.onReconnectSuccess(bleDevice);
-
+                    reconnectSuccessListener.reconnectSuccess(bleDevice);
                 }
                 for (Map.Entry<String, BleDevice> entry : disConnDeviceMap.entrySet()) {
                     //测试使用name,因为mac地址一直改变
@@ -145,8 +144,13 @@ public class VirtualLeashHelper {
 
             if (reconnSate && disConnDeviceMap.size() > 0) {
                 if (disConnDeviceMap.containsKey(bleDevice.getName())) {
-                    mReconnectListener.onReconnectFail(bleDevice);
+                    reconnectFailListener.reconnectFail(bleDevice);
                 }
+                double distance = getDistance(connDeviceRssiMap.get(bleDevice.getName()));
+                if (bleDevice.getRssi() == 0 || distance > 10) {
+                    deviceAwayListener.deviceAway(bleDevice);
+                }
+                Log.e("distance---", distance + "");
             }
         }
 
@@ -156,7 +160,7 @@ public class VirtualLeashHelper {
             reconnSate = true;
             //            disConnDeviceMap.put(device.getMac(), device);
             disConnDeviceMap.put(device.getName(), device); //测试
-            bluetoothHelper.scanAndConnect(false, null, device.getName());
+            bluetoothHelper.scanAndConnect(false, null, device.getName(),bleHandleListener);
             ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
             handler.sendEmptyMessageDelayed(0, bleManager.getReConnectCount() * bleManager.getReConnectInterval());
             for (Map.Entry<String, BleDevice> entry : connDeviceMap.entrySet()) {
@@ -168,14 +172,10 @@ public class VirtualLeashHelper {
                     connDeviceMap.remove(entry.getKey());
                 }
             }
-            double distance = getDistance(connDeviceRssiMap.get(device.getName()));
-            if (device.getRssi() == 0 || distance > 10) {
-                mReconnectListener.onDeviceAway(device);
-            }
-            Log.e("distance---", distance + "");
+
 
             if (!bleManager.isBlueEnable()) {
-                mReconnectListener.onBleDisable();
+                deviceSelfDisableListener.deviceSelfDisable();
             }
 
         }
@@ -221,35 +221,6 @@ public class VirtualLeashHelper {
         return Math.pow(10, power);
     }
 
-    private BluetoothHelper.BleReconnectListener mReconnectListener = new BluetoothHelper.BleReconnectListener() {
-        @Override
-        public void onReconnectSuccess(BleDevice device) {
-            if (reconnectSuccessListener != null) {
-                reconnectSuccessListener.reconnectSuccess(device);
-            }
-        }
-
-        @Override
-        public void onReconnectFail(BleDevice bleDevice) {
-            if (reconnectFailListener != null) {
-                reconnectFailListener.reconnectFail(bleDevice);
-            }
-        }
-
-        @Override
-        public void onBleDisable() {
-            if (deviceSelfDisableListener != null) {
-                deviceSelfDisableListener.deviceSelfDisable();
-            }
-        }
-
-        @Override
-        public void onDeviceAway(BleDevice device) {
-            if (deviceAwayListener != null) {
-                deviceAwayListener.deviceAway(device);
-            }
-        }
-    };
 
     private OnScanStartListener scanStartListener;
 

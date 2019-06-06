@@ -53,19 +53,22 @@ import java.util.UUID;
  */
 public class BluetoothHelper {
 
-    private static BluetoothHelper bluetoothHelper;
-    private boolean ifOpenNotify = true;
     private BleManager bleManager;
     private BleUuidHelper uuidHelper;
 
-    public BluetoothHelper() {
+    public BluetoothHelper(Application application) {
         bleManager = BleManager.getInstance();
+        initProperties(application);
     }
 
     public BleManager getBleManager() {
         return bleManager;
     }
 
+    /**
+     * 判断是否打开蓝牙
+     * @return
+     */
     public boolean isOpenBle() {
         if (bleManager != null) {
             return bleManager.isBlueEnable();
@@ -73,22 +76,35 @@ public class BluetoothHelper {
         return false;
     }
 
+    /**
+     * 打开蓝牙
+     */
     public void enableBle() {
         if (bleManager != null) {
             bleManager.enableBluetooth();
         }
     }
 
-    public void setIfOpenNotify(boolean ifOpenNotify) {
-        this.ifOpenNotify = ifOpenNotify;
-    }
-
-
-    public BluetoothHelper initProperties(Application application) {
+    /**
+     * BluetoothHelper初始化
+     * @param application
+     * @return
+     */
+    private void initProperties(Application application) {
         initBle(application);
-        return this;
     }
 
+    /**
+     * 各种UUID初始化
+     * @param service_uuids
+     * @param service_uuid
+     * @param notify_uuid
+     * @param read_uuid
+     * @param read_cha_uuid
+     * @param write_uuid
+     * @param write_cha_uuid
+     * @return
+     */
     public BluetoothHelper initUuid(UUID[] service_uuids, String service_uuid, String notify_uuid, String read_uuid, String read_cha_uuid, String write_uuid, String write_cha_uuid) {
         uuidHelper = new BleUuidHelper.Builder()
                 .setServiceUuids(service_uuids)
@@ -102,6 +118,10 @@ public class BluetoothHelper {
         return this;
     }
 
+    /**
+     * 初始化fastblue配置参数
+     * @param application
+     */
     private void initBle(Application application) {
         bleManager.init(application);
         bleManager.enableLog(true)
@@ -110,6 +130,13 @@ public class BluetoothHelper {
                 .setOperateTimeout(5000);
     }
 
+    /**
+     * 配置扫描规则
+     * @param isFuzzy 是否模糊扫描
+     * @param address 需要扫描的mac地址
+     * @param name 需要扫描的蓝牙名称
+     * @return
+     */
     private BleScanRuleConfig scanRule(boolean isFuzzy, String address, String name) {
         BleScanRuleConfig ruleConfig = new BleScanRuleConfig.Builder()
                 .setServiceUuids(null)
@@ -127,7 +154,8 @@ public class BluetoothHelper {
      * @param address 蓝牙mac地址
      * @param name    蓝牙名称,不准确,一般不使用,除非蓝牙名称已知且不可更改
      */
-    public void scanAndConnect(boolean isFuzzy, String address, String name) {
+    public void scanAndConnect(boolean isFuzzy, String address, String name,BleHandleListener handleListener) {
+        this.bleHandleListener=handleListener;
         bleManager.initScanRule(scanRule(isFuzzy, address, name));
         bleManager.scanAndConnect(scanAndConnectCallback);
     }
@@ -140,6 +168,13 @@ public class BluetoothHelper {
     }
 
     /**
+     *扫描取消
+     */
+    public void cancelScan(){
+        bleManager.cancelScan();
+    }
+
+    /**
      * 连接设备
      *
      * @param mac 蓝牙mac地址
@@ -148,163 +183,36 @@ public class BluetoothHelper {
         bleManager.connect(mac, gattCallback);
     }
 
+    /**
+     * 连接设备
+     *
+     * @param bleDevice 蓝牙设备
+     */
     public void connect(BleDevice bleDevice) {
         bleManager.connect(bleDevice, gattCallback);
     }
 
+    /**
+     * 手动断开设备连接
+     * @param bleDevice
+     */
+    public void disconnect(BleDevice bleDevice){
+        bleManager.disconnect(bleDevice);
+    }
+
+    /**
+     * 读取设备的rssi
+     * @param bleDevice
+     */
     public void onReadRssi(BleDevice bleDevice){
         bleManager.readRssi(bleDevice,bleRssiCallback);
     }
 
 
     /**
-     * 扫描监听
+     * 判断GPS是否打开
+     * @param context
      */
-    private BleScanCallback scanCallback = new BleScanCallback() {
-        @Override
-        public void onScanFinished(List<BleDevice> scanResultList) {
-            if (scanListener != null) {
-                scanListener.onScanFinished(scanResultList);
-            }
-        }
-
-        @Override
-        public void onScanStarted(boolean success) {
-
-        }
-
-        @Override
-        public void onScanning(BleDevice bleDevice) {
-
-        }
-    };
-
-    /**
-     * 连接监听
-     */
-    private BleGattCallback gattCallback = new BleGattCallback() {
-        @Override
-        public void onStartConnect() {
-
-        }
-
-        @Override
-        public void onConnectFail(BleDevice bleDevice, BleException exception) {
-            if (connectListener != null) {
-                connectListener.onConnectFail(bleDevice, exception);
-            }
-        }
-
-        @Override
-        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
-            Log.e("conn----", bleDevice.getMac() + "/" + bleDevice.getName());
-            if (connectListener != null) {
-                connectListener.onConnectSuccess(bleDevice, gatt);
-            }
-        }
-
-        @Override
-        public void onDisConnected(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt, int status) {
-
-        }
-    };
-
-    public BleScanAndConnectCallback getScanAndConnectCallback() {
-        return scanAndConnectCallback;
-    }
-
-    /**
-     * 扫描并连接监听
-     */
-    private BleScanAndConnectCallback scanAndConnectCallback = new BleScanAndConnectCallback() {
-
-        @Override
-        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
-            super.onConnectionStateChange(gatt, status, newState);
-            if (bleChangeStatus != null) {
-                bleChangeStatus.onChangeConnectionState(gatt, status, newState);
-            }
-        }
-
-        @Override
-        public void onScanFinished(BleDevice bleDevice) {
-            if (bleHandleListener != null) {
-                bleHandleListener.onScanFinished(bleDevice);
-            }
-
-        }
-
-        @Override
-        public void onStartConnect() {
-
-        }
-
-        @Override
-        public void onConnectFail(BleDevice bleDevice, BleException exception) {
-            if (bleHandleListener != null) {
-                bleHandleListener.onConnectFailed(bleDevice, exception.getDescription());
-            }
-
-
-
-        }
-
-        @Override
-        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
-
-            if (bleHandleListener != null) {
-                bleHandleListener.onConnectSuccess(bleDevice, gatt, status);
-            }
-
-        }
-
-        @Override
-        public void onDisConnected(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt, int status) {
-
-//            new ReconnectHelper().reconnListening();
-            if (bleHandleListener != null) {
-                bleHandleListener.onDisconnect(device, gatt);
-            }
-
-        }
-
-        @Override
-        public void onScanStarted(boolean success) {
-            if (bleHandleListener != null) {
-                bleHandleListener.onScanStarted(success);
-            }
-        }
-
-        @Override
-        public void onScanning(BleDevice bleDevice) {
-            if (bleDevice != null) {
-                BleLog.e("found device===" + bleDevice.getMac() + "/" + bleDevice.getName());
-            }
-        }
-
-
-    };
-
-
-    private BleRssiCallback bleRssiCallback = new BleRssiCallback() {
-        @Override
-        public void onRssiFailure(BleException exception) {
-            if (rssiListener!=null){
-                rssiListener.onRssiFailure(exception);
-            }
-        }
-
-        @Override
-        public void onRssiSuccess(int rssi) {
-            if (rssiListener!=null){
-                rssiListener.onRemoteRssi(rssi);
-            }
-        }
-    };
-
-
-
-
     public void checkGpsAndOpen(Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!isLocationProviderEnabled(context)) {
@@ -352,6 +260,230 @@ public class BluetoothHelper {
         }
     }
 
+
+    /**
+     * 蓝牙设备扫描监听
+     */
+    private BleScanCallback scanCallback = new BleScanCallback() {
+        @Override
+        public void onScanFinished(List<BleDevice> scanResultList) {
+            if (scanListener != null) {
+                scanListener.onScanFinished(scanResultList);
+            }
+        }
+
+        @Override
+        public void onScanStarted(boolean success) {
+
+        }
+
+        @Override
+        public void onScanning(BleDevice bleDevice) {
+
+        }
+    };
+
+    /**
+     * 蓝牙设备连接监听
+     */
+    private BleGattCallback gattCallback = new BleGattCallback() {
+
+        /**
+         * 开始连接
+         */
+        @Override
+        public void onStartConnect() {
+
+        }
+
+        /**
+         * 连接失败
+         * @param bleDevice 连接设备
+         * @param exception 异常信息
+         */
+        @Override
+        public void onConnectFail(BleDevice bleDevice, BleException exception) {
+            if (connectListener != null) {
+                connectListener.onConnectFail(bleDevice, exception);
+            }
+        }
+
+        /**
+         * 连接成功
+         * @param bleDevice 连接成功的设备
+         * @param gatt 蓝牙gatt
+         * @param status 状态码
+         */
+        @Override
+        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
+            Log.e("conn----", bleDevice.getMac() + "/" + bleDevice.getName());
+            if (connectListener != null) {
+                connectListener.onConnectSuccess(bleDevice, gatt);
+            }
+        }
+
+        /**
+         * 断开连接
+         * @param isActiveDisConnected 是否确定已断开
+         * @param device 断开设备
+         * @param gatt gatt
+         * @param status 状态
+         */
+        @Override
+        public void onDisConnected(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt, int status) {
+
+        }
+    };
+
+    /**
+     * 获取扫描连接callback
+     * @return
+     */
+    public BleScanAndConnectCallback getScanAndConnectCallback() {
+        return scanAndConnectCallback;
+    }
+
+    /**
+     * 扫描并连接监听
+     */
+    private BleScanAndConnectCallback scanAndConnectCallback = new BleScanAndConnectCallback() {
+
+        /**
+         * 蓝牙连接状态变化
+         * @param gatt
+         * @param status gatt状态
+         * @param newState BluetoothProfile 状态
+         */
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            super.onConnectionStateChange(gatt, status, newState);
+            if (bleChangeStatus != null) {
+                bleChangeStatus.onChangeConnectionState(gatt, status, newState);
+            }
+        }
+
+        /**
+         * 扫描结束
+         * @param bleDevice 扫描到的设备,可以为null
+         */
+        @Override
+        public void onScanFinished(BleDevice bleDevice) {
+            if (bleHandleListener != null) {
+                bleHandleListener.onScanFinished(bleDevice);
+            }
+
+        }
+
+        /**
+         * 连接开始
+         */
+        @Override
+        public void onStartConnect() {
+
+        }
+
+        /**
+         * 连接失败
+         * @param bleDevice 连接的设备,可以为null
+         * @param exception 异常
+         */
+        @Override
+        public void onConnectFail(BleDevice bleDevice, BleException exception) {
+            if (bleHandleListener != null) {
+                bleHandleListener.onConnectFailed(bleDevice, exception.getDescription());
+            }
+
+
+
+        }
+
+        /**
+         * 连接成功
+         * @param bleDevice 连接成功的设备
+         * @param gatt 蓝牙gatt
+         * @param status gatt状态
+         */
+        @Override
+        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
+
+            if (bleHandleListener != null) {
+                bleHandleListener.onConnectSuccess(bleDevice, gatt, status);
+            }
+
+        }
+
+        /**
+         * 断开连接
+         * @param isActiveDisConnected 是否确定已断开
+         * @param device 断开设备
+         * @param gatt gatt
+         * @param status 状态
+         */
+        @Override
+        public void onDisConnected(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt, int status) {
+
+//            new ReconnectHelper().reconnListening();
+            if (bleHandleListener != null) {
+                bleHandleListener.onDisconnect(device, gatt);
+            }
+
+        }
+
+        /**
+         * 扫描开始
+         * @param success 是否已开始
+         */
+        @Override
+        public void onScanStarted(boolean success) {
+            if (bleHandleListener != null) {
+                bleHandleListener.onScanStarted(success);
+            }
+        }
+
+        /**
+         * 扫描中
+         * @param bleDevice
+         */
+        @Override
+        public void onScanning(BleDevice bleDevice) {
+            if (bleDevice != null) {
+                BleLog.e("found device===" + bleDevice.getMac() + "/" + bleDevice.getName());
+            }
+        }
+
+
+    };
+
+    /**
+     * 读取rssi回调
+     */
+    private BleRssiCallback bleRssiCallback = new BleRssiCallback() {
+
+        /**
+         * rssi读取失败
+         * @param exception
+         */
+        @Override
+        public void onRssiFailure(BleException exception) {
+            if (rssiListener!=null){
+                rssiListener.onRssiFailure(exception);
+            }
+        }
+
+        /**
+         * rssi读取成功
+         * @param rssi 读取到的rssi
+         */
+        @Override
+        public void onRssiSuccess(int rssi) {
+            if (rssiListener!=null){
+                rssiListener.onRemoteRssi(rssi);
+            }
+        }
+    };
+
+
+
     public interface Status {
         int BLE_DISABLE = 0x2001; //手机端蓝牙未打开
         int BLE_REMOTE_DISABLE = 0x2002; //设备端蓝牙未打开
@@ -368,7 +500,7 @@ public class BluetoothHelper {
 
 
     /**
-     * 处理蓝牙的细分回调,如连接,扫描等操作 START
+     * 对外暴露的接口,处理蓝牙的细分回调,如连接,扫描等操作 START
      */
 
     private BleHandleListener bleHandleListener;
@@ -420,22 +552,6 @@ public class BluetoothHelper {
         void onConnectFail(BleDevice device, BleException e);
     }
 
-    //重连监听
-    public void setReconnectListener(BleReconnectListener reconnectListener) {
-        this.reconnectListener = reconnectListener;
-    }
-
-    private BleReconnectListener reconnectListener;
-
-    public interface BleReconnectListener {
-        void onReconnectSuccess(BleDevice device);
-
-        void onReconnectFail(BleDevice bleDevice);
-
-        void onBleDisable();
-
-        void onDeviceAway(BleDevice device);
-    }
 
     /**
      * 监听蓝牙各种状态回调
@@ -480,7 +596,7 @@ public class BluetoothHelper {
     }
 
 
-    //读
+    //读操作监听
     private ReadListener readListener;
 
     public void setReadListener(ReadListener readListener) {
@@ -547,6 +663,12 @@ public class BluetoothHelper {
 
     //写数据的监听
     public interface WriteListener {
+        /**
+         * 写入操作
+         * @param current 当前包
+         * @param total 总大小
+         * @param justWrite 每一包
+         */
         void onWriteSuccess(int current, int total, byte[] justWrite);
 
         void onWriteFailure(BleException exception);

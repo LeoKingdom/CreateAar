@@ -11,12 +11,19 @@ import java.util.UUID;
  * 蓝牙的各种uuid
  */
 public class BleUuidHelper {
+    //服务UUID组
     private UUID[] serviceUuids;
+    //单个服务UUID
     private String serviceUuid;
+    //通知UUID
     private String notiyUuid;
+    //读操作UUID
     private String readUuid;
+    //读特征UUID
     private String readChaUuid;
+    //写操作UUID
     private String writeUuid;
+    //写特征UUID
     private String writeChaUuid;
 
 

@@ -78,7 +78,7 @@ public class ReconnectHelper {
                     @Override
                     public void onTick(long millisUntilFinished) {
 //                        Log.e("reconn----",entry.getKey()+"/"+entry.getValue().getName());
-                        bluetoothHelper.scanAndConnect(false, null, entry.getValue().getName());
+                        bluetoothHelper.scanAndConnect(false, null, entry.getValue().getName(),virtualLeashHelper.bleHandleListener);
 
                     }
 
