@@ -616,7 +616,7 @@ public class BluetoothHelper {
      * @param bleDevice 设备
      *                  notify 和indicate方法都可以设置通知,区别在于:indicate方法,从端收到通知会回发一个ACK包到主端
      */
-    private void setNotify(BleDevice bleDevice, BleNotifyListener listener) {
+    public void setNotify(BleDevice bleDevice, BleNotifyListener listener) {
         if (uuidHelper == null) uuidHelper = new BleUuidHelper();
         this.notifyListener = listener;
         BleManager.getInstance().notify(bleDevice, uuidHelper.getServiceUuid(), uuidHelper.getNotiyUuid(), notifyCallback);
