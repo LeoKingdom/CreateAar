@@ -276,7 +276,7 @@ public class BluetoothHelper {
 
             /**
              * 断开连接
-             * @param isActiveDisConnected 是否确定已断开
+             * @param isActiveDisConnected 是否是之前自己要求主动断开的
              * @param device 断开设备
              * @param gatt gatt
              * @param status 状态
@@ -447,7 +447,7 @@ public class BluetoothHelper {
 
         /**
          * 断开连接
-         * @param isActiveDisConnected 是否确定已断开
+         * @param isActiveDisConnected 是否是之前自己要求主动断开的
          * @param device 断开设备
          * @param gatt gatt
          * @param status 状态
@@ -562,7 +562,7 @@ public class BluetoothHelper {
                 uuidHelper.getReadChaUuid(),
                 new BleReadCallback() {
                     @Override
-                    public void onReadSuccess(byte[] data) {
+                    public void onReadSuccess(byte[] data) {//对应了onCharacteristicRead的回调
                         if (readListener != null) {
                             readListener.onReadSuccess(data);
                         }
@@ -601,37 +601,33 @@ public class BluetoothHelper {
     public void setNotify(BleDevice bleDevice, BleNotifyListener listener) {
         if (uuidHelper == null) uuidHelper = new BleUuidHelper();
         this.notifyListener = listener;
-        BleManager.getInstance().notify(bleDevice, uuidHelper.getServiceUuid(), uuidHelper.getNotiyUuid(), notifyCallback);
+        //必须设置true参数，看源码就懂了
+        BleManager.getInstance().notify(bleDevice, uuidHelper.getServiceUuid(), uuidHelper.getNotiyUuid(),true, new BleNotifyCallback() {
+            // 打开通知操作成功
+            @Override
+            public void onNotifySuccess() {//对应了onDescriptorWrite的回调
+                if (notifyListener != null) {
+                    notifyListener.onNotifySuccess();
+                }
+            }
+
+            // 打开通知操作失败
+            @Override
+            public void onNotifyFailure(BleException exception) {
+                if (notifyListener != null) {
+                    notifyListener.onNotifyFailed(exception);
+                }
+            }
+
+            // 打开通知后，设备发过来的数据将在这里出现
+            @Override
+            public void onCharacteristicChanged(byte[] data) {//对应了onCharacteristicChanged的回调
+                if (notifyListener != null) {
+                    notifyListener.onCharacteristicChanged(data);
+                }
+            }
+        });
     }
-
-    /**
-     * 通知监听
-     */
-    private BleNotifyCallback notifyCallback = new BleNotifyCallback() {
-        // 打开通知操作成功
-        @Override
-        public void onNotifySuccess() {
-            if (notifyListener != null) {
-                notifyListener.onNotifySuccess();
-            }
-        }
-
-        // 打开通知操作失败
-        @Override
-        public void onNotifyFailure(BleException exception) {
-            if (notifyListener != null) {
-                notifyListener.onNotifyFailed(exception);
-            }
-        }
-
-        // 打开通知后，设备发过来的数据将在这里出现
-        @Override
-        public void onCharacteristicChanged(byte[] data) {
-            if (notifyListener != null) {
-                notifyListener.onCharacteristicChanged(data);
-            }
-        }
-    };
 
     private BleNotifyListener notifyListener;
 
@@ -659,7 +655,7 @@ public class BluetoothHelper {
                 dates,
                 new BleWriteCallback() {
                     @Override
-                    public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                    public void onWriteSuccess(int current, int total, byte[] justWrite) {//对应了onCharacteristicWrite的回调
                         listener.onWriteSuccess(current, total, justWrite);
                     }
 
@@ -710,7 +706,7 @@ public class BluetoothHelper {
                     }
 
                     @Override
-                    public void onRssiSuccess(int rssi) {
+                    public void onRssiSuccess(int rssi) {//对应了onReadRemoteRssi的回调
                         // 读取设备的信号强度成功
                         rssiListener.onRemoteRssi(rssi);
                     }
