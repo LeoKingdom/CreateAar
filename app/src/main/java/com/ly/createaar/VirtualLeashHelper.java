@@ -10,7 +10,7 @@ import com.clj.fastble.BleManager;
 import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.utils.BleLog;
-import com.ly.bluetoothhelper.BluetoothHelper;
+import com.ly.bluetoothhelper.helper.BluetoothHelper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -51,11 +51,12 @@ public class VirtualLeashHelper {
 
     private VirtualLeashHelper() {
 
-        bleManager = bluetoothHelper.getBleManager();
+
     }
 
     public VirtualLeashHelper init(Application application) {
         bluetoothHelper = new BluetoothHelper(application);
+        bleManager = bluetoothHelper.getBleManager();
         return this;
     }
 
@@ -69,6 +70,16 @@ public class VirtualLeashHelper {
         }
         return virtualLeashHelper;
     }
+
+    /**
+     *
+     * @param isFuzzy 是否模糊搜索,基本都是true
+     * @param address 蓝牙mac地址
+     * @param name 蓝牙名称
+     *             注意:
+     *             当通过名称搜索和连接时,address可以为null
+     *             当通过address搜索和连接时,name不能为null,否则会报空指针异常,可以是""
+     */
 
     public void openVirtualLeash(boolean isFuzzy, String address, String name) {
         bluetoothHelper.scanAndConnect(isFuzzy, address, name,bleHandleListener);

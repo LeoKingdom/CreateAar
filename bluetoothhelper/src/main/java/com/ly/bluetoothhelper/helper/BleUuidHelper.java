@@ -1,4 +1,4 @@
-package com.ly.bluetoothhelper;
+package com.ly.bluetoothhelper.helper;
 
 import java.util.UUID;
 

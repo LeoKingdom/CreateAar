@@ -1,25 +1,16 @@
-package com.ly.bluetoothhelper;
+package com.ly.bluetoothhelper.helper;
 
-import android.app.Activity;
 import android.app.Application;
 import android.app.PendingIntent;
-import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCharacteristic;
 import android.content.Context;
 import android.content.Intent;
 import android.location.LocationManager;
 import android.net.Uri;
-import android.os.Binder;
 import android.os.Build;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.Message;
 import android.provider.Settings;
-import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
-import android.util.ArrayMap;
 import android.util.Log;
 
 import com.clj.fastble.BleManager;
@@ -34,13 +25,9 @@ import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.scan.BleScanRuleConfig;
 import com.clj.fastble.utils.BleLog;
-import com.ly.bluetoothhelper.BleUuidHelper;
 
 
-import java.lang.ref.WeakReference;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -279,7 +266,8 @@ public class BluetoothHelper {
 
         @Override
         public void onScanning(BleDevice bleDevice) {
-
+            if (bleDevice!=null)
+            Log.e("device---",bleDevice.getMac()+"");
         }
     };
 
