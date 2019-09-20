@@ -86,10 +86,10 @@ public class MainActivity extends AppCompatActivity {
         String msg=editText.getText().toString().trim();
 //        if (TextUtils.isEmpty(msg)) return;
         byte[] datas= TransformUtils.getHexBytes(msg);
-        bluetoothHelper1.write(bleDevice,new byte[]{-85,0,10},new BluetoothHelper.WriteListener(){
+        bluetoothHelper1.write(bleDevice,new byte[]{-85,0,0,1,1,32,2},new BluetoothHelper.WriteListener(){
             @Override
             public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                toast("current----"+current+"/total---"+total+"/each---"+TransformUtils.bytesToHexString(justWrite));
+                Log.e("writeSuccess---","current----"+current+"/total---"+total+"/each---"+TransformUtils.bytesToHexString(justWrite));
             }
 
             @Override
@@ -100,12 +100,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void notify(View view){
-        toast(TransformUtils.string2HexString("0x20")+"");
-        Log.e("string2HexString---",TransformUtils.hex2int("AB")+"");
-        Log.e("hexString2String---",TransformUtils.hexString2String("30783230"));
-        Log.e("hexString2bytes---", Arrays.toString(TransformUtils.hexToByteArray("Ab000A")));
-        Log.e("bytes2hexString---", TransformUtils.bytesToHexString(new byte[]{-85,0,10}));
-//        byte[] bytes=new byte[]{'0xAB',};
+        bluetoothHelper1.setNotify(bleDevice, new BluetoothHelper.BleNotifyListener() {
+            @Override
+            public void onNotifySuccess() {
+
+            }
+
+            @Override
+            public void onNotifyFailed(BleException e) {
+
+            }
+
+            @Override
+            public void onCharacteristicChanged(byte[] data) {
+                Log.e("notifyData----",TransformUtils.bytes2String(data));
+            }
+        });
     }
 
     public void scan(View view) {
