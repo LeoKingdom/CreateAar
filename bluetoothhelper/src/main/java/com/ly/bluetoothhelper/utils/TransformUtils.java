@@ -2,6 +2,11 @@ package com.ly.bluetoothhelper.utils;
 
 import android.util.Log;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 
 /**
@@ -139,4 +144,65 @@ public class TransformUtils {
     public static int hex2int(String hexString) {
         return Integer.parseInt(hexString, 16);
     }
+
+    // 从文件中读取字节流
+    public synchronized static byte[] fileToByte(File file) throws IOException {
+        InputStream inputStream = new FileInputStream(file);
+        int count = inputStream.available();
+        if (count == 0) {
+            return null;
+        }
+        byte[] b = new byte[count];
+        inputStream.read(b);
+        return b;
+    }
+
+    // 从文件流中读取字节流
+    public synchronized static byte[] streamToByte(InputStream stream) throws IOException {
+        int count = stream.available();
+        if (count == 0) {
+            return null;
+        }
+        byte[] b = new byte[count];
+        stream.read(b);
+        return b;
+    }
+
+    /**
+     * 截取byte数组   不改变原数组
+     *
+     * @param b      原数组
+     * @param off    偏差值（索引）
+     * @param length 长度
+     * @return 截取后的数组
+     */
+    public static byte[] subBytes(byte[] b, int off, int length) {
+        byte[] b1 = new byte[length];
+        System.arraycopy(b, off, b1, 0, length);
+        return b1;
+    }
+
+    /**
+     * 合并多个字节数组
+     *
+     * @param a 字节数组,可变
+     * @return 合并后的数组
+     */
+
+    public static byte[] combineArrays(byte[]... a) {
+        int massLength = 0;
+        for (byte[] b : a) {
+            massLength += b.length;
+        }
+        byte[] c = new byte[massLength];
+        byte[] d;
+        int index = 0;
+        for (byte[] anA : a) {
+            d = anA;
+            System.arraycopy(d, 0, c, 0 + index, d.length);
+            index += d.length;
+        }
+        return c;
+    }
+
 }
