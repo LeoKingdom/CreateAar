@@ -10,7 +10,7 @@ package com.ly.bluetoothhelper.utils;
  */
 public class OrderSetUtils {
     public static final byte[] ORDER_HEADER={-85}; //头部指令
-    public static final byte[] ORDER_OAD={-85,0,5,1,1,32,2}; //进入ota升级指令
+    public static final byte[] ORDER_OAD={-85,0,7,0,0,32,2,1,1}; //进入ota升级指令,最后两个字节表示升级的bin文件(有可能有多个),total和current
     public static final byte[] ORDER_OAD_DATA_SEND={-85,0,0,1,1,32,3}; //准备发送ota升级包指令
     public static final byte[] ORDER_LOCATION={-85,0,0,1,1,16,5}; //获取定位指令
     public static final byte[] ORDER_VERSION={-85,0,0,1,1,32,1}; //获取设备版本号指令

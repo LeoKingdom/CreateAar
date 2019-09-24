@@ -141,6 +141,11 @@ public class TransformUtils {
         return Integer.toHexString(num);
     }
 
+    public static byte int2byte(int num) {
+        String hexString = int2hex(num);
+        return hexToByte(hexString);
+    }
+
     public static int hex2int(String hexString) {
         return Integer.parseInt(hexString, 16);
     }

@@ -23,8 +23,9 @@
             </intent-filter>
         </activity>
         <service
-            android:name="com.ly.bluetoothhelper.oat.service.OtauBleService"
+            android:name=".OTAUpgradeService"
             android:exported="false" />
+
     </application>
 
 </manifest>
