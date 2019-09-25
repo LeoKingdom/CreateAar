@@ -39,6 +39,10 @@ public class TransformUtils {
         return stringBuffer.toString();
     }
 
+    public static int byte2Int(byte b) {
+        return b & 0xFF;
+    }
+
     public static String bytes2String(byte[] bytes) {
         String str = null;
         try {

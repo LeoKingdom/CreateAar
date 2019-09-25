@@ -204,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
         //合并后的字节数组
         byte[] lastBytes = null;
         try {
-            InputStream inputStream = getResources().getAssets().open("new_ota.bin");
+            InputStream inputStream = getResources().getAssets().open("ap");
             byte[] bytes = TransformUtils.streamToByte(inputStream);
             byte[] bytes1 = TransformUtils.subBytes(bytes, 0, 5);
             int length = bytes.length % 20 == 0 ? (bytes.length / 20) : (bytes.length / 20 + 1);
@@ -213,6 +213,7 @@ public class MainActivity extends AppCompatActivity {
             int totalPackets0 = (bytes.length % 19 == 0) ? (bytes.length / 19) : (bytes.length / 19 + 1);
             int num = 0;
             int currentPacket = 0;
+
             if (bytes.length > 4 * 1024) {
                 for (int j = 0; j < totalPackets0; j++) {
                     num++;
@@ -255,7 +256,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
         return lastBytes;
     }
 
@@ -299,6 +299,7 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, OTAUpgradeService.class);
         intent.setAction(ActionUtils.ACTION_DEVICE_SCAN);
         intent.putExtra("mac_address", "01:02:04:05:06:07");
+        intent.putExtra("dataByte",combinePacket());
         startService(intent);
     }
 
@@ -309,13 +310,13 @@ public class MainActivity extends AppCompatActivity {
             String msg = msgBean.getMsg();
             if (o instanceof BleDevice) {
                 BleDevice device = (BleDevice) o;
-                if (msg.equals(ActionUtils.ACTION_CONNECT_SUCCESS)) {
-                    connectSuccess(device);
-                } else if (msg.equals(ActionUtils.ACTION_CONNECT_FAIL)) {
+                if (msg.equals(ActionUtils.ACTION_CONNECT_SUCCESS_S)) {
+//                    connectSuccess(device);
+                } else if (msg.equals(ActionUtils.ACTION_CONNECT_FAIL_S)) {
                     connetFail(device);
-                } else if (msg.equals(ActionUtils.ACTION_SCAN_SUCCESS)) {
+                } else if (msg.equals(ActionUtils.ACTION_SCAN_SUCCESS_S)) {
                     scanSuccess(device);
-                } else if (msg.equals(ActionUtils.ACTION_SCAN_FAIL)) {
+                } else if (msg.equals(ActionUtils.ACTION_SCAN_FAIL_S)) {
                     scanFail();
                 }
             }
