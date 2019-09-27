@@ -2,6 +2,7 @@ package com.ly.createaar;
 
 import android.app.Application;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.os.CountDownTimer;
 import android.os.Message;
 import android.util.Log;
@@ -82,12 +83,18 @@ public class VirtualLeashHelper {
      */
 
     public void openVirtualLeash(boolean isFuzzy, String address, String name) {
+        bluetoothHelper.setCharacteristicChangeListener(characteristicChangeListener);
         bluetoothHelper.scanAndConnect(isFuzzy, address, name,bleHandleListener);
     }
 
-    public void openReconnectListen() {
-
-    }
+    private BluetoothHelper.CharacteristicChangeListener characteristicChangeListener= new BluetoothHelper.CharacteristicChangeListener() {
+        @Override
+        public void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            if (onCharacteristicChangeListener!=null){
+                onCharacteristicChangeListener.onCharacteristicChange(gatt,characteristic);
+            }
+        }
+    };
 
     BluetoothHelper.BleHandleListener bleHandleListener = new BluetoothHelper.BleHandleListener() {
         @Override
@@ -232,6 +239,15 @@ public class VirtualLeashHelper {
         return Math.pow(10, power);
     }
 
+    public void setCharacteristicChangeListener(OnCharacteristicChangeListener charactoristicChangeListener) {
+        this.onCharacteristicChangeListener = charactoristicChangeListener;
+    }
+
+    private OnCharacteristicChangeListener onCharacteristicChangeListener;
+
+    public interface OnCharacteristicChangeListener{
+        void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic);
+    }
 
     private OnScanStartListener scanStartListener;
 

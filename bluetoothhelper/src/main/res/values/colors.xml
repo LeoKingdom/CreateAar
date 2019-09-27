@@ -6,4 +6,7 @@
     <color name="color_black">#000000</color>
     <color name="color_gray">#cccccc</color>
     <color name="color_Accent">#D81B60</color>
+    <color name="color_4DCCCCCE">#4DCCCCCE</color>
+    <color name="color_DEFFFFFF">#DEFFFFFF</color>
+    <color name="colorr_8A000000">#8A000000</color>
 </resources>

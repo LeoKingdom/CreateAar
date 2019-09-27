@@ -23,5 +23,8 @@ public class ActionUtils {
     public static final int ACTION_CONNECT_SUCCESS_I = 7;
     public static final String ACTION_CONNECT_FAIL_S = "ACTION_CONNECT_FAIL";
     public static final int ACTION_CONNECT_FAIL_I = 8;
+    public static final int ACTION_DISCONNECT_I = 10;
+    public static final String ACTION_DISCONNECT_S = "ACTION_DISCONNECT_S";
 
+    public static final int ACTION_OTA_NOTIFY = 9;
 }

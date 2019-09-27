@@ -2,6 +2,8 @@ package com.ly.createaar;
 
 import android.annotation.SuppressLint;
 import android.app.Service;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Handler;
@@ -18,7 +20,9 @@ import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.DataPacketUtils;
 import com.ly.bluetoothhelper.utils.OrderSetUtils;
 import com.ly.bluetoothhelper.utils.TransformUtils;
+
 import org.greenrobot.eventbus.EventBus;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -30,7 +34,7 @@ import java.util.Objects;
  * email: SWD-yun.ling@jrdcom.com
  * date: 2019/9/24 13:19
  * version: 1.0
- *
+ * <p>
  * ota升级服务
  */
 public class OTAUpgradeService extends Service {
@@ -38,6 +42,7 @@ public class OTAUpgradeService extends Service {
     private VirtualLeashHelper bluetoothHelper; //蓝牙操作辅助类
     private BluetoothHelper bluetoothHelper1; //蓝牙操作类
     private BleDevice bleDevice; //蓝牙设备
+    private BluetoothGatt bluetoothGatt;
     private int totalFrame; //总帧数
     int currentFrame = 1; //当前帧
     private byte[] totalPacketBytes = null; //文件字节流
@@ -69,6 +74,10 @@ public class OTAUpgradeService extends Service {
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
             switch (msg.what) {
+
+                case ActionUtils.ACTION_OTA_NOTIFY:
+                    break;
+
                 case ActionUtils.ACTION_OTA_ORDER_I: //发送ota升级命令(含校验bin的合法性)
                     byte[] oadOrder = OrderSetUtils.ORDER_OAD;
                     byte[] headByte = TransformUtils.subBytes(totalPacketBytes, 1, 5);
@@ -167,9 +176,10 @@ public class OTAUpgradeService extends Service {
             bluetoothHelper.setConnectSuccessListener((bleDevice, gatt) -> {
                 if (bleDevice != null) {
                     this.bleDevice = bleDevice;
-                    setNotify(bleDevice);
-                    CURRENT_WHAT = ActionUtils.ACTION_OTA_ORDER_I;
-                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 500);
+                    this.bluetoothGatt = gatt;
+//                    setNotify(bleDevice);
+//                    CURRENT_WHAT = ActionUtils.ACTION_OTA_ORDER_I;
+//                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 500);
                     MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, bleDevice);
                     EventBus.getDefault().post(msgBean);
                 }
@@ -194,11 +204,16 @@ public class OTAUpgradeService extends Service {
             });
             bluetoothHelper.setDisconnectListener((bleDevice, bluetoothGatt) -> {
                 //断开连接,记录数据传输情况
-
+                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_DISCONNECT_S, bleDevice);
+                EventBus.getDefault().post(msgBean);
             });
             bluetoothHelper.setReconnectSuccessListener((bleDevice1 -> {
-                //若重新连接上,尚未确定是继续传输还是???
-
+                //若重新连接上,尚未确定是继续传输还是???,暂定为关闭service,若下次启动,将从断位开始
+//                stopSelf();
+            }));
+            //监听characteristic变化
+            bluetoothHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
+                Log.e("crtChange---",TransformUtils.bytes2String(characteristic.getValue()));
             }));
         } else if (Objects.equals(action, "OTA_START")) {
             //处理bin文件,转换成byte数组
@@ -206,6 +221,7 @@ public class OTAUpgradeService extends Service {
 
         }
     }
+
 
     private void setNotify(BleDevice bleDevice) {
 

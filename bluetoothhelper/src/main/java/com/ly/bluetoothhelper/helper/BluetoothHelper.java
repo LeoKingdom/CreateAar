@@ -8,6 +8,7 @@ package com.ly.bluetoothhelper.helper;
 import android.annotation.SuppressLint;
 import android.app.Application;
 import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCharacteristic;
 import android.content.Context;
 import android.content.Intent;
 import android.location.LocationManager;
@@ -128,6 +129,15 @@ public class BluetoothHelper {
     public void scanAndConnect(boolean isFuzzy, String address, String name, final BluetoothHelper.BleHandleListener handleListener) {
         this.bleManager.initScanRule(this.scanRule(isFuzzy, address, name));
         this.bleManager.scanAndConnect(new BleScanAndConnectCallback() {
+
+            @Override
+            public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+                super.onCharacteristicChanged(gatt, characteristic);
+                if (characteristicChangeListener!=null){
+                    characteristicChangeListener.onCharacteristicChange(gatt,characteristic);
+                }
+            }
+
             public void onScanFinished(BleDevice bleDevice) {
                 if (handleListener != null) {
                     handleListener.onScanFinished(bleDevice);
@@ -228,12 +238,12 @@ public class BluetoothHelper {
         });
     }
 
-    public void setNotify(BleDevice bleDevice, final BluetoothHelper.BleNotifyListener listener) {
+    public void setNotify(BleDevice bleDevice, final BleNotifyListener listener) {
         if (this.uuidHelper == null) {
             this.uuidHelper = new BleUuidHelper();
         }
-
-        BleManager.getInstance().notify(bleDevice, this.uuidHelper.getServiceUuid(), this.uuidHelper.getNotiyUuid(), true, new BleNotifyCallback() {
+        Log.e("uuid---",uuidHelper.getNotiyUuid()+"/"+uuidHelper.getServiceUuid());
+        BleManager.getInstance().notify(bleDevice, this.uuidHelper.getServiceUuid(), this.uuidHelper.getNotiyUuid(), new BleNotifyCallback() {
             public void onNotifySuccess() {
                 if (listener != null) {
                     listener.onNotifySuccess();
@@ -343,6 +353,16 @@ public class BluetoothHelper {
         void onConnectFailed(BleDevice var1, String var2);
 
         void onDisconnect(BleDevice var1, BluetoothGatt var2);
+    }
+
+    public void setCharacteristicChangeListener(CharacteristicChangeListener charactoristicChangeListener) {
+        this.characteristicChangeListener = charactoristicChangeListener;
+    }
+
+    private CharacteristicChangeListener characteristicChangeListener;
+
+    public interface CharacteristicChangeListener{
+        void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic);
     }
 
     public interface Status {
