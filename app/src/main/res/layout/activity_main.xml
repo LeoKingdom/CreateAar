@@ -18,16 +18,32 @@
             android:onClick="scan"
             android:text="扫描并连接"
             android:textSize="30sp" />
-
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:onClick="notify"
+            android:text="开启通知"
+            android:textSize="30sp" />
         <TextView
             android:id="@+id/ota"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:onClick="read"
-            android:text="OTA升级指令"
+            android:text="OTA升级包校验"
             android:textSize="30sp" />
 
+
+
+        <TextView
+            android:id="@+id/ota_data"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:onClick="write"
+            android:text="开始OTA升级"
+            android:textSize="30sp" />
         <TextView
             android:id="@+id/version"
             android:layout_width="wrap_content"
@@ -36,22 +52,16 @@
             android:onClick="read"
             android:text="获取版本指令"
             android:textSize="30sp" />
-
         <TextView
+            android:id="@+id/write"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:onClick="write"
-            android:text="开始OTA升级"
+            android:text="写入命令"
             android:textSize="30sp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:onClick="notify"
-            android:text="通知"
-            android:textSize="30sp" />
+
 
 
         <EditText
@@ -64,6 +74,21 @@
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
             android:singleLine="true" />
+        <Button
+            android:onClick="clear"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="left"
+            android:text="清除"/>
+        <TextView
+            android:id="@+id/write_tv"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="当前写入:"
+            android:textSize="16sp"
+            android:layout_marginRight="@dimen/dp_10"
+            android:layout_marginLeft="@dimen/dp_10"/>
     </LinearLayout>
     <com.ly.bluetoothhelper.widget.ProgressDialogWidget
         android:id="@+id/progress_dialog"

@@ -207,17 +207,23 @@ public class OTAUpgradeService extends Service {
                 MsgBean msgBean = new MsgBean(ActionUtils.ACTION_DISCONNECT_S, bleDevice);
                 EventBus.getDefault().post(msgBean);
             });
-            bluetoothHelper.setReconnectSuccessListener((bleDevice1 -> {
+            bluetoothHelper.setReconnectSuccessListener((bleDevice -> {
                 //若重新连接上,尚未确定是继续传输还是???,暂定为关闭service,若下次启动,将从断位开始
 //                stopSelf();
+                this.bleDevice = bleDevice;
+//                    setNotify(bleDevice);
+//                    CURRENT_WHAT = ActionUtils.ACTION_OTA_ORDER_I;
+//                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 500);
+                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, bleDevice);
+                EventBus.getDefault().post(msgBean);
             }));
             //监听characteristic变化
-            bluetoothHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
-                Log.e("crtChange---",TransformUtils.bytes2String(characteristic.getValue()));
-            }));
+//            bluetoothHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
+//                Log.e("crtChange---",TransformUtils.bytes2String(characteristic.getValue()));
+//            }));
         } else if (Objects.equals(action, "OTA_START")) {
             //处理bin文件,转换成byte数组
-            byte[] packetsByte = combinePacket();
+//            byte[] packetsByte = combinePacket();
 
         }
     }

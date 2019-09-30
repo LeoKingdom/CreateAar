@@ -139,6 +139,7 @@ public class BluetoothHelper {
             }
 
             public void onScanFinished(BleDevice bleDevice) {
+                Log.e("device----",bleDevice+"");
                 if (handleListener != null) {
                     handleListener.onScanFinished(bleDevice);
                 }
@@ -242,7 +243,6 @@ public class BluetoothHelper {
         if (this.uuidHelper == null) {
             this.uuidHelper = new BleUuidHelper();
         }
-        Log.e("uuid---",uuidHelper.getNotiyUuid()+"/"+uuidHelper.getServiceUuid());
         BleManager.getInstance().notify(bleDevice, this.uuidHelper.getServiceUuid(), this.uuidHelper.getNotiyUuid(), new BleNotifyCallback() {
             public void onNotifySuccess() {
                 if (listener != null) {

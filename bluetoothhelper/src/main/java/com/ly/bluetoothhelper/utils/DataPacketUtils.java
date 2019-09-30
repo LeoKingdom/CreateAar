@@ -1,11 +1,13 @@
 package com.ly.bluetoothhelper.utils;
 
 import android.content.Context;
+import android.util.Log;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -16,14 +18,14 @@ import java.util.List;
  */
 public class DataPacketUtils {
     /**
-     * @param datas 字节流
+     * @param datas 字节流(已加上序号)
      * @param curr  当前帧
      * @param total 总帧
      * @return 当前帧字节数组
      */
     public static byte[] currentPacket(byte[] datas, int curr, int total) {
         byte[] eachFrameBytes = null;
-        if (curr == total - 1) {
+        if (curr == total) {
             //最后一帧,不一定是4kb
             int lastPacketLenght = datas.length - (total - 1) * 4 * 1024;
             eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, lastPacketLenght);
@@ -32,6 +34,30 @@ public class DataPacketUtils {
             eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, 4 * 1024);
         }
         return eachFrameBytes;
+    }
+
+    /**
+     * @param datas (原字节流)
+     * @param curr  当前帧
+     * @param total 总帧
+     * @return 返回帧校验字节数组
+     */
+    public static byte[] crcFramePacket(byte[] datas, int curr, int total) {
+        byte[] eachFrameBytes = null;
+        if (curr == total) {
+            //最后一帧,不一定是4kb
+            int lastPacketLenght = datas.length - total * 4096;
+            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, lastPacketLenght);
+
+        } else {
+            //每一帧,长度为4kb
+            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, 4096);
+        }
+        if (curr == total) {
+
+        }
+        byte crcByte = CRCCheckUtils.calcCrc8(eachFrameBytes);
+        return new byte[]{crcByte};
     }
 
     public static byte[] getHeadBytes(Context context, InputStream inputStream) {
@@ -47,6 +73,67 @@ public class DataPacketUtils {
 
     /**
      * @param inputStream 文件输入流
+     * @return 加上校验字节后的字节数组
+     */
+    public static byte[] crcCombineBytes(InputStream inputStream) {
+        //合并后的字节数组
+        byte[] lastBytes = null;
+        try {
+            byte[] bytes = TransformUtils.streamToByte(inputStream);
+            //由于需要带上序号,因此总的byte数组长度增大
+            int totalPackets0 = (bytes.length % 19 == 0) ? (bytes.length / 19) : (bytes.length / 19 + 1);
+            int crcTotalFrame = bytes.length % 3891 == 0 ? bytes.length / 3891 : bytes.length / 3891 + 1;
+            byte[] crcBytes = null;
+            int num = 0;
+            int currentPacket = 0;
+            if (bytes.length > 4 * 1024) {
+                for (int j = 0; j < totalPackets0; j++) {
+                    num++;
+                    byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(num), 16))};
+                    if (num == 205) {
+                        num = 0;
+                    }
+                    int tem = 0;
+                    if (j != totalPackets0 - 1) {
+                        tem = 19;
+                    } else {
+                        tem = bytes.length - 19 * (totalPackets0 - 1);
+                    }
+                    byte[] eachBytes = TransformUtils.subBytes(bytes, j * 19, tem);
+                    byte[] handleBytes = TransformUtils.combineArrays(eachHeadBytes, eachBytes);
+                    if (j != 0) {
+                        lastBytes = TransformUtils.combineArrays(lastBytes, handleBytes);
+                    } else {
+                        lastBytes = TransformUtils.combineArrays(handleBytes);
+                    }
+                }
+            } else {
+                for (int j = 0; j < totalPackets0; j++) {
+                    byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(j + 1), 16))};
+                    int tem = 0;
+                    if (j != totalPackets0 - 1) {
+                        tem = 19;
+                    } else {
+                        tem = bytes.length - 19 * (totalPackets0 - 1);
+                    }
+                    byte[] eachBytes = TransformUtils.subBytes(bytes, j * 19, tem);
+                    byte[] handleBytes = TransformUtils.combineArrays(eachHeadBytes, eachBytes);
+                    if (j != 0) {
+                        lastBytes = TransformUtils.combineArrays(lastBytes, handleBytes);
+                    } else {
+                        lastBytes = TransformUtils.combineArrays(handleBytes);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return lastBytes;
+    }
+
+    /**
+     * @param inputStream 文件输入流
      * @return 加上序号后的字节数组
      */
     public static byte[] combinePacket(InputStream inputStream) {
@@ -54,20 +141,20 @@ public class DataPacketUtils {
         byte[] lastBytes = null;
         try {
             byte[] bytes = TransformUtils.streamToByte(inputStream);
-            byte[] bytes1 = TransformUtils.subBytes(bytes, 0, 5);
             int length = bytes.length % 20 == 0 ? (bytes.length / 20) : (bytes.length / 20 + 1);
-            byte[] newBytes = new byte[length + bytes.length];
             //由于需要带上序号,因此总的byte数组长度增大
             int totalPackets0 = (bytes.length % 19 == 0) ? (bytes.length / 19) : (bytes.length / 19 + 1);
+            int crcTotalFrame = bytes.length % 3891 == 0 ? bytes.length / 3891 : bytes.length / 3891 + 1;
+            byte[] crcBytes = null;
             int num = 0;
             int currentPacket = 0;
             if (bytes.length > 4 * 1024) {
                 for (int j = 0; j < totalPackets0; j++) {
                     num++;
-                    if (num == 205) {
-                        num = 1;
-                    }
                     byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(num), 16))};
+                    if (num == 205) {
+                        num = 0;
+                    }
                     int tem = 0;
                     if (j != totalPackets0 - 1) {
                         tem = 19;

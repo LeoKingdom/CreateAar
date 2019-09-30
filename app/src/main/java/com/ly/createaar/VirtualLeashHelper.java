@@ -191,6 +191,9 @@ public class VirtualLeashHelper {
                 }
             }
 
+            if (disconnectListener!=null){
+                disconnectListener.disconnect(device,gatt);
+            }
 
             if (!bleManager.isBlueEnable()) {
                 deviceSelfDisableListener.deviceSelfDisable();

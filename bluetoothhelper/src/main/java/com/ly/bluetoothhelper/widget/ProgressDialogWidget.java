@@ -25,6 +25,8 @@ public class ProgressDialogWidget extends RelativeLayout {
     private ProgressBar progressBar;//进度条
     private TextView progressNumTv;//进度
 
+
+    private TextView currentPacket;
     public ProgressDialogWidget(Context context) {
         this(context, null, 0);
     }
@@ -43,6 +45,7 @@ public class ProgressDialogWidget extends RelativeLayout {
         ivBg = inflate.findViewById(R.id.iv_bg);
         progressBar=inflate.findViewById(R.id.progress_bar);
         progressNumTv=inflate.findViewById(R.id.progress_bar_tv);
+        currentPacket=inflate.findViewById(R.id.progress_tv_pro);
         ivBg.setOnClickListener(null);
 
     }
@@ -87,6 +90,11 @@ public class ProgressDialogWidget extends RelativeLayout {
     public TextView getTvTitle() {
         return this.tvTitle;
     }
+
+    public TextView getCurrentPacket() {
+        return currentPacket;
+    }
+
 
     /**
      * 进度

@@ -27,8 +27,10 @@ import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
 import com.ly.bluetoothhelper.utils.ActionUtils;
+import com.ly.bluetoothhelper.utils.CRCCheckUtils;
 import com.ly.bluetoothhelper.utils.DataPacketUtils;
 import com.ly.bluetoothhelper.utils.OrderSetUtils;
+import com.ly.bluetoothhelper.utils.SharePreferenceUtils;
 import com.ly.bluetoothhelper.utils.TransformUtils;
 import com.ly.bluetoothhelper.widget.LoadingWidget;
 import com.ly.bluetoothhelper.widget.ProgressDialogWidget;
@@ -53,15 +55,20 @@ public class MainActivity extends AppCompatActivity {
     private TextView scanAndConnTv;
     private ProgressDialogWidget progressDialogWidget;
     private LoadingWidget loadingWidget;
+    private TextView textView;
     private boolean ota_ready = false;
     private boolean ota_order_send = false;
     private Queue<byte[]> packetQueue = new LinkedList<>();
-    private int currentPacket = 0;
     private int totalFrame; //总帧数
     int currentFrame = 1; //当前帧
     private byte[] totalPacketBytes = null; //文件字节流
+    private byte[] initialTotalBytes = null;
     private int CURRENT_WHAT = -1;
     private OTAUpgradeService otaUpgradeService;
+    private int currentPacket = 0;
+    private int cPacket = 0;
+    private boolean isBin = false;
+
     @SuppressLint("HandlerLeak")
     private Handler handler = new Handler() {
         @Override
@@ -90,13 +97,43 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 case ActionUtils.ACTION_OTA_DATA_HEAD_I: //发送ota数据帧帧头
                     byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(totalPacketBytes.length, totalFrame, currentFrame);
-                    writePacket(dataHeadBytes);
+                    bluetoothHelper1.write(bleDevice, dataHeadBytes, new BluetoothHelper.WriteListener() {
+                        @Override
+                        public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                            if (CURRENT_WHAT == ActionUtils.ACTION_OTA_DATA_HEAD_I) { //数据头写入成功
+                                CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_DATA_I;
+                                handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_DATA_I).sendToTarget();
+                            }
+//                            Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
+                        }
+
+                        @Override
+                        public void onWriteFailure(BleException exception) {
+                            Log.e("writeException----", "" + exception.toString());
+                        }
+                    });
                     break;
 
                 case ActionUtils.ACTION_OTA_DATA_DATA_I: //发送ota数据帧
                     if (currentFrame <= totalFrame) {
                         byte[] currPacket = DataPacketUtils.currentPacket(totalPacketBytes, currentFrame, totalFrame);
+//                        Log.e("nnnn----",Arrays.toString(initialTotalBytes));
+                        byte[] initialCurrentFrame = DataPacketUtils.crcFramePacket(initialTotalBytes, currentFrame, totalFrame);
+                        byte crcByte = CRCCheckUtils.calcCrc8(initialCurrentFrame);
+                        if (currentFrame == totalFrame) {
+                            if (currPacket.length % 20 == 0) {
+                                int length = currPacket.length / 20;
+                                currPacket = TransformUtils.combineArrays(currPacket, new byte[]{(byte) length, crcByte});
+                            }
+                        } else {
+                            currPacket = TransformUtils.combineArrays(currPacket, new byte[]{crcByte});
+                        }
+                        currentPacket = currPacket.length % 20 == 0 ? currPacket.length / 20 : currPacket.length / 20 + 1;
+                        progressDialogWidget.getProgressBar().setMax(currentPacket);
+                        progressDialogWidget.getProgressNumTv().setText(0 + "%");
+                        progressDialogWidget.show();
                         writePacket(currPacket);
+
                     }
                     break;
                 case ActionUtils.ACTION_OTA_DATA_LOSE_I:
@@ -128,13 +165,19 @@ public class MainActivity extends AppCompatActivity {
 
     private void writePacket(byte[] eachFrameBytes) {
 
-        Log.e("device----", bleDevice + "/" + Arrays.toString(eachFrameBytes));
+//        Log.e("device----", bleDevice + "/" + Arrays.toString(eachFrameBytes));
         bluetoothHelper1.write(bleDevice, eachFrameBytes, new BluetoothHelper.WriteListener() {
             @Override
             public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                if (CURRENT_WHAT == ActionUtils.ACTION_OTA_DATA_HEAD_I) { //数据头写入成功
-                    CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_DATA_I;
-                    handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_DATA_I).sendToTarget();
+                cPacket = current;
+                float percent = (float) current / total * 100;
+                progressDialogWidget.getProgressBar().setProgress((int) percent);
+                progressDialogWidget.getCurrentPacket().setText("当前传送: 第" + currentFrame + "帧,第" + current + "包");
+                progressDialogWidget.getProgressNumTv().setText((int) percent + "%");
+                if (currentPacket == current) {
+                    currentFrame++;
+                    CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_HEAD_I;
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 300);
                 }
                 Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
             }
@@ -166,9 +209,10 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         EventBus.getDefault().register(this);
         editText = findViewById(R.id.edittext);
-        scanAndConnTv=findViewById(R.id.scan_and_conn);
-        progressDialogWidget=findViewById(R.id.progress_dialog);
-        loadingWidget=findViewById(R.id.main_loading_widget);
+        scanAndConnTv = findViewById(R.id.scan_and_conn);
+        progressDialogWidget = findViewById(R.id.progress_dialog);
+        loadingWidget = findViewById(R.id.main_loading_widget);
+        textView = findViewById(R.id.write_tv);
         bluetoothHelper = VirtualLeashHelper.getInstance().init(getApplication());
         bluetoothHelper1 = new BluetoothHelper(getApplication());
         bluetoothHelper1.initUuid(null,
@@ -179,7 +223,7 @@ public class MainActivity extends AppCompatActivity {
                 "00005501-d102-11e1-9b23-00025b00a5a5",
                 "00005501-d102-11e1-9b23-00025b00a5a5");
 //        myHandler = new MyHandler(this);
-        totalPacketBytes=combinePacket();
+        totalPacketBytes = combinePacket();
         if (totalPacketBytes != null) {
             //总帧数
             totalFrame = (totalPacketBytes.length / 1024) % 4 != 0 ? ((totalPacketBytes.length / 1024 / 4) + 1) : (totalPacketBytes.length / 1024 / 4);
@@ -208,7 +252,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void toast(String msg) {
-        Toast.makeText(this, "show---:" + msg, Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "" + msg, Toast.LENGTH_LONG).show();
     }
 
     public void read(View view) {
@@ -236,19 +280,20 @@ public class MainActivity extends AppCompatActivity {
             handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 100);
         } else if (view.getId() == R.id.version) {
             orderBytes = OrderSetUtils.ORDER_VERSION;
+            writePacket(orderBytes);
         }
 
-        bluetoothHelper1.write(bleDevice, orderBytes, new BluetoothHelper.WriteListener() {
-            @Override
-            public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-            }
-
-            @Override
-            public void onWriteFailure(BleException exception) {
-
-            }
-        });
+//        bluetoothHelper1.write(bleDevice, orderBytes, new BluetoothHelper.WriteListener() {
+//            @Override
+//            public void onWriteSuccess(int current, int total, byte[] justWrite) {
+//                Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
+//            }
+//
+//            @Override
+//            public void onWriteFailure(BleException exception) {
+//
+//            }
+//        });
 
 //        bluetoothHelper1.read(bleDevice, new BluetoothHelper.ReadListener() {
 //            @Override
@@ -263,25 +308,34 @@ public class MainActivity extends AppCompatActivity {
 //        });
     }
 
+    public void clear(View view) {
+        editText.setText("");
+    }
+
     public void write(View view) {
         if (bleDevice == null) {
             toast("设备未连接");
             return;
         }
-        String msg = editText.getText().toString().trim();
+        if (view.getId() == R.id.ota_data) {
+            handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_HEAD_I).sendToTarget();
+        } else {
+            String msg = editText.getText().toString().trim();
 //        if (TextUtils.isEmpty(msg)) return;
-        byte[] datas = TransformUtils.getHexBytes(msg);
-        bluetoothHelper1.write(bleDevice, new byte[]{-85, 0, 0, 1, 1, 32, 2}, new BluetoothHelper.WriteListener() {
-            @Override
-            public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-            }
+            byte[] datas = TransformUtils.getHexBytes(msg);
+            bluetoothHelper1.write(bleDevice, datas, new BluetoothHelper.WriteListener() {
+                @Override
+                public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                    Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
+                    textView.setText("当前写入: " + TransformUtils.bytesToHexString(datas));
+                }
 
-            @Override
-            public void onWriteFailure(BleException exception) {
+                @Override
+                public void onWriteFailure(BleException exception) {
 
-            }
-        });
+                }
+            });
+        }
     }
 
     private byte[] currentPacket(byte[] datas, int curr, int total) {
@@ -302,54 +356,9 @@ public class MainActivity extends AppCompatActivity {
         byte[] lastBytes = null;
         try {
             InputStream inputStream = getResources().getAssets().open("ap");
-            byte[] bytes = TransformUtils.streamToByte(inputStream);
-            byte[] bytes1 = TransformUtils.subBytes(bytes, 0, 5);
-            int length = bytes.length % 20 == 0 ? (bytes.length / 20) : (bytes.length / 20 + 1);
-            byte[] newBytes = new byte[length + bytes.length];
-            //由于需要带上序号,因此总的byte数组长度增大
-            int totalPackets0 = (bytes.length % 19 == 0) ? (bytes.length / 19) : (bytes.length / 19 + 1);
-            int num = 0;
-            int currentPacket = 0;
-
-            if (bytes.length > 4 * 1024) {
-                for (int j = 0; j < totalPackets0; j++) {
-                    num++;
-                    if (num == 205) {
-                        num = 1;
-                    }
-                    byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(num), 16))};
-                    int tem = 0;
-                    if (j != totalPackets0 - 1) {
-                        tem = 19;
-                    } else {
-                        tem = bytes.length - 19 * (totalPackets0 - 1);
-                    }
-                    byte[] eachBytes = TransformUtils.subBytes(bytes, j * 19, tem);
-                    byte[] handleBytes = TransformUtils.combineArrays(eachHeadBytes, eachBytes);
-                    if (j != 0) {
-                        lastBytes = TransformUtils.combineArrays(lastBytes, handleBytes);
-                    } else {
-                        lastBytes = TransformUtils.combineArrays(handleBytes);
-                    }
-                }
-            } else {
-                for (int j = 0; j < totalPackets0; j++) {
-                    byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(j + 1), 16))};
-                    int tem = 0;
-                    if (j != totalPackets0 - 1) {
-                        tem = 19;
-                    } else {
-                        tem = bytes.length - 19 * (totalPackets0 - 1);
-                    }
-                    byte[] eachBytes = TransformUtils.subBytes(bytes, j * 19, tem);
-                    byte[] handleBytes = TransformUtils.combineArrays(eachHeadBytes, eachBytes);
-                    if (j != 0) {
-                        lastBytes = TransformUtils.combineArrays(lastBytes, handleBytes);
-                    } else {
-                        lastBytes = TransformUtils.combineArrays(handleBytes);
-                    }
-                }
-            }
+            lastBytes = DataPacketUtils.combinePacket(inputStream);
+            InputStream inputStream1 = getResources().getAssets().open("ap");
+            initialTotalBytes = TransformUtils.streamToByte(inputStream1);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -366,12 +375,14 @@ public class MainActivity extends AppCompatActivity {
         bluetoothHelper1.setNotify(bleDevice, new BluetoothHelper.BleNotifyListener() {
             @Override
             public void onNotifySuccess() {
-                Log.e("notify---","success");
+                toast("通知开启成功");
+                Log.e("notify---", "success");
             }
 
             @Override
             public void onNotifyFailed(BleException e) {
-                Log.e("notify---","fail---"+e.getDescription());
+                toast("通知开启失败");
+                Log.e("notify---", "fail---" + e.getDescription());
             }
 
             @Override
@@ -387,9 +398,11 @@ public class MainActivity extends AppCompatActivity {
                             Log.e("ota-check----", "check fail");
                         } else {
                             //校验bin包成功,可以开始传输ota包,
+                            isBin = true;
+                            toast("校验成功");
                             CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_HEAD_I;
                             loadingWidget.hide();
-                            handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_HEAD_I).sendToTarget();
+//                            handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_HEAD_I).sendToTarget();
                         }
                     } else if (moduId == (byte) 0x03 && eventId == (byte) 0x20) { //ota数据包
                         //成功接收完一帧,开始发送下一帧
@@ -412,7 +425,7 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(this, OTAUpgradeService.class);
         intent.setAction(ActionUtils.ACTION_DEVICE_SCAN);
         intent.putExtra("mac_address", "01:02:04:05:06:09");
-        intent.putExtra("dataByte",combinePacket());
+        intent.putExtra("dataByte", totalPacketBytes);
         startService(intent);
     }
 
@@ -429,23 +442,26 @@ public class MainActivity extends AppCompatActivity {
                     connetFail(device);
                 } else if (msg.equals(ActionUtils.ACTION_SCAN_SUCCESS_S)) {
                     scanSuccess(device);
-                } else if (msg.equals(ActionUtils.ACTION_SCAN_FAIL_S)) {
-                    scanFail();
-                }else if(msg.equals(ActionUtils.ACTION_DISCONNECT_S)){
+                } else if (msg.equals(ActionUtils.ACTION_DISCONNECT_S)) {
                     disconnect(device);
+                }
+            } else if (o == null) {
+                if (msg.equals(ActionUtils.ACTION_SCAN_FAIL_S)) {
+                    scanFail();
                 }
             }
         }
 
     }
 
-    private void disconnect(BleDevice device){
+    private void disconnect(BleDevice device) {
         this.bleDevice = null;
         scanAndConnTv.setText("扫描与连接(已断开)");
+        SharePreferenceUtils.setValue(this, "current-frame", cPacket + "," + currentFrame);
     }
 
     public void scanFail() {
-
+        toast("未发现蓝牙设备,请重启设备再试");
     }
 
 
@@ -455,7 +471,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     public void connetFail(BleDevice b) {
-
+        toast("连接失败");
     }
 
     private void setNotify() {
@@ -500,35 +516,4 @@ public class MainActivity extends AppCompatActivity {
         scanAndConnTv.setText("扫描与连接(已连接)");
     }
 
-    private void sendOtaOrder() {
-        if (bleDevice == null) {
-            toast("设备未连接");
-            return;
-        }
-        byte[] bytes = null;
-        byte[] headBytes = null;
-        try {
-            InputStream inputStream = getResources().getAssets().open("ap");
-            bytes = TransformUtils.streamToByte(inputStream);
-            headBytes = TransformUtils.subBytes(bytes, 0, 5);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        byte[] orderBytes = null;
-        ota_order_send = true;
-        orderBytes = TransformUtils.combineArrays(OrderSetUtils.ORDER_OAD, headBytes);
-        bluetoothHelper1.write(bleDevice, orderBytes, new BluetoothHelper.WriteListener() {
-            @Override
-            public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-            }
-
-            @Override
-            public void onWriteFailure(BleException exception) {
-
-            }
-        });
-    }
 }
