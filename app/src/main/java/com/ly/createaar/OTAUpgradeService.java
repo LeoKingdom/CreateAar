@@ -180,7 +180,7 @@ public class OTAUpgradeService extends Service {
 //                    setNotify(bleDevice);
 //                    CURRENT_WHAT = ActionUtils.ACTION_OTA_ORDER_I;
 //                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 500);
-                    MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, bleDevice);
+                    MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S,gatt, bleDevice);
                     EventBus.getDefault().post(msgBean);
                 }
             });
@@ -218,9 +218,9 @@ public class OTAUpgradeService extends Service {
                 EventBus.getDefault().post(msgBean);
             }));
             //监听characteristic变化
-//            bluetoothHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
-//                Log.e("crtChange---",TransformUtils.bytes2String(characteristic.getValue()));
-//            }));
+            bluetoothHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
+                Log.e("crtChange---",TransformUtils.bytes2String(characteristic.getValue()));
+            }));
         } else if (Objects.equals(action, "OTA_START")) {
             //处理bin文件,转换成byte数组
 //            byte[] packetsByte = combinePacket();
@@ -292,19 +292,6 @@ public class OTAUpgradeService extends Service {
 
             }
         });
-    }
-
-
-    private byte[] combinePacket() {
-        //合并后的字节数组
-        byte[] lastBytes = null;
-        try {
-            InputStream inputStream = getResources().getAssets().open("ap");
-            lastBytes = DataPacketUtils.combinePacket(inputStream);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return lastBytes;
     }
 
     private void toast(String msg) {

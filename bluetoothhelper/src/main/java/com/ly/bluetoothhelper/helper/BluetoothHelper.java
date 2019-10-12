@@ -26,6 +26,7 @@ import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.scan.BleScanRuleConfig;
 import com.clj.fastble.utils.BleLog;
+import com.ly.bluetoothhelper.utils.TransformUtils;
 
 import java.util.List;
 import java.util.UUID;
@@ -271,10 +272,13 @@ public class BluetoothHelper {
         BleManager.getInstance().write(bleDevice, this.uuidHelper.getServiceUuid(), this.uuidHelper.getWriteUuid(), dates, new BleWriteCallback() {
             public void onWriteSuccess(int current, int total, byte[] justWrite) {
                 listener.onWriteSuccess(current, total, justWrite);
+                Log.i("writeblll----", TransformUtils.bytesToHexString(justWrite));
             }
 
             public void onWriteFailure(BleException exception) {
                 listener.onWriteFailure(exception);
+                Log.e("writeblll---",exception.toString());
+
             }
         });
     }

@@ -27,4 +27,7 @@ public class ActionUtils {
     public static final String ACTION_DISCONNECT_S = "ACTION_DISCONNECT_S";
 
     public static final int ACTION_OTA_NOTIFY = 9;
+    public static final int ACTION_OTA_VALIFY_OUTTIME = 11;
+    public static final int ACTION_OTA_PACK_INTERVAL_TIME = 12;
+
 }

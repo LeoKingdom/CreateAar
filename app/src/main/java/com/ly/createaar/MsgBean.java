@@ -1,5 +1,7 @@
 package com.ly.createaar;
 
+import android.bluetooth.BluetoothGatt;
+
 /**
  * author: LingYun
  * email: SWD-yun.ling@jrdcom.com
@@ -25,10 +27,24 @@ public class MsgBean {
 
     String msg;
     Object object;
+    BluetoothGatt gatt;
+
+    public BluetoothGatt getGatt() {
+        return gatt;
+    }
+
+    public void setGatt(BluetoothGatt gatt) {
+        this.gatt = gatt;
+    }
 
     public MsgBean(){}
     public MsgBean(String msg, Object object) {
         this.msg = msg;
         this.object = object;
+    }
+    public MsgBean(String msg, BluetoothGatt gatt, Object object) {
+        this.msg = msg;
+        this.object = object;
+        this.gatt=gatt;
     }
 }

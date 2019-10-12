@@ -18,7 +18,7 @@ import java.util.List;
  */
 public class DataPacketUtils {
     /**
-     * @param datas 字节流(已加上序号)
+     * @param datas 字节流
      * @param curr  当前帧
      * @param total 总帧
      * @return 当前帧字节数组
@@ -28,37 +28,61 @@ public class DataPacketUtils {
         if (curr == total) {
             //最后一帧,不一定是4kb
             int lastPacketLenght = datas.length - (total - 1) * 4 * 1024;
-            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, lastPacketLenght);
+            eachFrameBytes = TransformUtils.subBytes(datas, (curr - 1) * 4 * 1024, lastPacketLenght);
         } else {
             //每一帧,长度为4kb
-            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, 4 * 1024);
+            eachFrameBytes = TransformUtils.subBytes(datas, (curr - 1) * 4 * 1024, 4 * 1024);
         }
         return eachFrameBytes;
     }
 
+    public static byte[] sortEachFrame(byte[] datas, int curr, int total) {
+        byte[] currentFrame = currentPacket(datas, curr, total);
+        byte[] sortFrame = splitEachFrameBytes(currentFrame);
+        return sortFrame;
+    }
+
     /**
-     * @param datas (原字节流)
-     * @param curr  当前帧
-     * @param total 总帧
-     * @return 返回帧校验字节数组
+     * 将每一帧的每一包加上序号和最后的crc字节
+     *
+     * @param eachFrameBytes 一帧数据
+     * @return 加上序号后一帧数据
      */
-    public static byte[] crcFramePacket(byte[] datas, int curr, int total) {
-        byte[] eachFrameBytes = null;
-        if (curr == total) {
-            //最后一帧,不一定是4kb
-            int lastPacketLenght = datas.length - total * 4096;
-            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, lastPacketLenght);
+    public static byte[] splitEachFrameBytes(byte[] eachFrameBytes) {
+        int length = (eachFrameBytes.length % 19 == 0) ? (eachFrameBytes.length / 19) : (eachFrameBytes.length / 19 + 1);
+        int num = 0;
+        int num1 = 0;
+        byte[] lastBytes = null;
+        boolean isTrue = eachFrameBytes.length % 19 == 0;
+        int tem = 19;
+        for (int i = 1; i <= length; i++) {
+            num++;
+            num1++;
+            byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(num), 16))};
+            if (num == 216) {
+                num = 0;
+            }
 
-        } else {
-            //每一帧,长度为4kb
-            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, 4096);
-        }
-        if (curr == total) {
-
+            if (!isTrue && i == length) {
+                tem = eachFrameBytes.length - 19 * (length - 1);
+            }
+            byte[] eachBytes = TransformUtils.subBytes(eachFrameBytes, (i - 1) * 19, tem);
+            byte[] handleBytes = TransformUtils.combineArrays(eachHeadBytes, eachBytes);
+            if (i != 1) {
+                lastBytes = TransformUtils.combineArrays(lastBytes, handleBytes);
+            } else {
+                lastBytes = handleBytes;
+            }
         }
         byte crcByte = CRCCheckUtils.calcCrc8(eachFrameBytes);
-        return new byte[]{crcByte};
+        if (isTrue) {
+            lastBytes = TransformUtils.combineArrays(lastBytes, new byte[]{(byte) num1, crcByte});
+        } else {
+            lastBytes = TransformUtils.combineArrays(lastBytes, new byte[]{crcByte});
+        }
+        return lastBytes;
     }
+
 
     public static byte[] getHeadBytes(Context context, InputStream inputStream) {
         byte[] bytes = null;
@@ -90,7 +114,7 @@ public class DataPacketUtils {
                 for (int j = 0; j < totalPackets0; j++) {
                     num++;
                     byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(num), 16))};
-                    if (num == 205) {
+                    if (num == 216) {
                         num = 0;
                     }
                     int tem = 0;
@@ -152,7 +176,7 @@ public class DataPacketUtils {
                 for (int j = 0; j < totalPackets0; j++) {
                     num++;
                     byte[] eachHeadBytes = new byte[]{(byte) (Integer.parseInt(Integer.toHexString(num), 16))};
-                    if (num == 205) {
+                    if (num == 216) {
                         num = 0;
                     }
                     int tem = 0;
@@ -245,7 +269,7 @@ public class DataPacketUtils {
         List<byte[]> losePacketList = new ArrayList<>();
         int totalFrame = TransformUtils.byte2Int(responseByte[3]);
         int currentFrame = TransformUtils.byte2Int(responseByte[4]);
-        byte[] currentFrameBytes = currentPacket(data, totalFrame, currentFrame);
+        byte[] currentFrameBytes = sortEachFrame(data, currentFrame, totalFrame);
         //总包数
         int length = data.length % 20 == 0 ? (data.length / 20) : (data.length / 20 + 1);
         if (responseByte[7] == (byte) 0x00) {
