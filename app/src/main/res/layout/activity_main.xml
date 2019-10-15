@@ -17,14 +17,20 @@
             android:layout_marginTop="20dp"
             android:onClick="scan"
             android:text="扫描并连接"
-            android:textSize="30sp" />
+            android:textSize="30sp"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:onClick="notify"
             android:text="开启通知"
-            android:textSize="30sp" />
+            android:textSize="30sp"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
         <TextView
             android:id="@+id/ota"
             android:layout_width="wrap_content"
@@ -32,7 +38,10 @@
             android:layout_marginTop="20dp"
             android:onClick="read"
             android:text="OTA升级包校验"
-            android:textSize="30sp" />
+            android:textSize="30sp"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
 
 
 
@@ -51,7 +60,10 @@
             android:layout_marginTop="20dp"
             android:onClick="read"
             android:text="获取版本指令"
-            android:textSize="30sp" />
+            android:textSize="30sp"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
         <TextView
             android:id="@+id/write"
             android:layout_width="wrap_content"
@@ -59,7 +71,10 @@
             android:layout_marginTop="20dp"
             android:onClick="write"
             android:text="写入命令"
-            android:textSize="30sp" />
+            android:textSize="30sp"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
 
 
 
@@ -73,13 +88,19 @@
             android:hint="输入指令(十六进制)"
             android:paddingStart="10dp"
             android:paddingEnd="10dp"
-            android:singleLine="true" />
+            android:singleLine="true"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
         <Button
             android:onClick="clear"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="left"
-            android:text="清除"/>
+            android:text="清除"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
         <TextView
             android:id="@+id/write_tv"
             android:layout_width="match_parent"
@@ -88,7 +109,10 @@
             android:text="当前写入:"
             android:textSize="16sp"
             android:layout_marginRight="@dimen/dp_10"
-            android:layout_marginLeft="@dimen/dp_10"/>
+            android:layout_marginLeft="@dimen/dp_10"
+            android:visibility="invisible"
+            android:clickable="false"
+            />
     </LinearLayout>
     <com.ly.bluetoothhelper.widget.ProgressDialogWidget
         android:id="@+id/progress_dialog"

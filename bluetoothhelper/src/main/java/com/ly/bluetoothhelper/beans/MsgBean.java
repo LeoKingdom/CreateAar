@@ -1,4 +1,4 @@
-package com.ly.createaar;
+package com.ly.bluetoothhelper.beans;
 
 import android.bluetooth.BluetoothGatt;
 

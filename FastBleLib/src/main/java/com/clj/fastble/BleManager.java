@@ -64,6 +64,16 @@ public class BleManager {
     private int splitWriteNum = DEFAULT_WRITE_DATA_SPLIT_COUNT;
     private long connectOverTime = DEFAULT_CONNECT_OVER_TIME;
 
+    public void setWhenNextPacketSuccess(boolean whenNextPacketSuccess) {
+        this.whenNextPacketSuccess = whenNextPacketSuccess;
+    }
+
+    public void setIntervalBetweenPacket(long intervalBetweenPacket) {
+        this.intervalBetweenPacket = intervalBetweenPacket;
+    }
+
+    private boolean whenNextPacketSuccess=true;
+    private long intervalBetweenPacket=0;
     public static BleManager getInstance() {
         return BleManagerHolder.sBleManager;
     }
@@ -585,7 +595,7 @@ public class BleManager {
                       boolean split,
                       BleWriteCallback callback) {
 
-        write(bleDevice, uuid_service, uuid_write, data, split, true, 0, callback);
+        write(bleDevice, uuid_service, uuid_write, data, split, true, 1200, callback);
     }
 
     /**

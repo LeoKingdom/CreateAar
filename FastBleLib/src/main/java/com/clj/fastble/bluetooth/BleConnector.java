@@ -297,9 +297,9 @@ public class BleConnector {
             descriptor = characteristic.getDescriptor(characteristic.getUuid());
         } else {
             descriptorList = characteristic.getDescriptors();
-//            descriptor = characteristic.getDescriptor(formUUID(UUID_CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR));
+            descriptor = characteristic.getDescriptor(formUUID(UUID_CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR));
         }
-        if (descriptorList == null) {
+        if (descriptor == null) {
             notifyMsgInit();
             if (bleNotifyCallback != null)
                 bleNotifyCallback.onNotifyFailure(new OtherException("descriptor equals null"));
@@ -307,13 +307,13 @@ public class BleConnector {
         } else {
 
             boolean success2 = false;
-            if (descriptorList != null && descriptorList.size() > 0) {
-                for (BluetoothGattDescriptor descriptor1 : descriptorList) {
-                    descriptor1.setValue(enable ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE :
+//            if (descriptorList != null && descriptorList.size() > 0) {
+//                for (BluetoothGattDescriptor descriptor1 : descriptorList) {
+                    descriptor.setValue(enable ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE :
                             BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
-                    success2 = gatt.writeDescriptor(descriptor1);
-                }
-            }
+                    success2 = gatt.writeDescriptor(descriptor);
+//                }
+//            }
             if (!success2) {
                 notifyMsgInit();
                 if (bleNotifyCallback != null)

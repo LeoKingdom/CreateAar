@@ -244,6 +244,7 @@ public class DataPacketUtils {
      * @return
      */
     public static byte[] eachFrameFirstPacket(int dataLength, int totalFrame, int currFrame) {
+        Log.e("dataLength---",dataLength+"");
         byte[] frameOrderByte = new byte[7];
         int l = dataLength / 256;
         int m = dataLength % 256;
@@ -265,75 +266,85 @@ public class DataPacketUtils {
      * @param responseByte 响应字节数组
      * @return
      */
-    public static List<byte[]> losePacketList(byte[] data, byte[] responseByte) {
+    public static byte[] losePackets(byte[] data, byte[] responseByte) {
         List<byte[]> losePacketList = new ArrayList<>();
         int totalFrame = TransformUtils.byte2Int(responseByte[3]);
         int currentFrame = TransformUtils.byte2Int(responseByte[4]);
-        byte[] currentFrameBytes = sortEachFrame(data, currentFrame, totalFrame);
+//        byte[] currentFrameBytes = sortEachFrame(data, currentFrame, totalFrame);
+        byte[] currentFrameBytes = data;
+        byte[] lostPacketBytes = null;
         //总包数
         int length = data.length % 20 == 0 ? (data.length / 20) : (data.length / 20 + 1);
-        if (responseByte[7] == (byte) 0x00) {
+        int resLength = responseByte.length;
+        byte loseCurrentByte = responseByte[resLength - 1];
+        byte loseTotalByte = responseByte[7];
+        if (loseCurrentByte == (byte) 0x00 && loseTotalByte == (byte) 0x00) {
             //未丢包
             return null;
-        } else if (responseByte[7] == (byte) 0x01) {
+        } else if (loseTotalByte == (byte) 0x01) {
             //丢一包,responseByte长度为9
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
-            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex - 1, 20);
-            losePacketList.add(onePacket);
-        } else if (responseByte[7] == (byte) 0x02) {
+            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
+            lostPacketBytes = onePacket;
+//            losePacketList.add(onePacket);
+        } else if (loseTotalByte == (byte) 0x02) {
             //丢两包,responseByte长度为10
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
             int losePacketIndex1 = TransformUtils.byte2Int(responseByte[9]);
-            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex - 1, 20);
-            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex1 - 1, 20);
-            losePacketList.add(onePacket);
-            losePacketList.add(twoPacket);
-        } else if (responseByte[7] == (byte) 0x03) {
+            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
+            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex1 - 1) * 20, 20);
+            lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket);
+//            losePacketList.add(onePacket);
+//            losePacketList.add(twoPacket);
+        } else if (loseTotalByte == (byte) 0x03) {
             //丢三包,responseByte长度为11
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
             int losePacketIndex1 = TransformUtils.byte2Int(responseByte[9]);
             int losePacketIndex2 = TransformUtils.byte2Int(responseByte[10]);
-            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex - 1, 20);
-            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex1 - 1, 20);
-            byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex2 - 1, 20);
-            losePacketList.add(onePacket);
-            losePacketList.add(twoPacket);
-            losePacketList.add(threePacket);
-        } else if (responseByte[7] == (byte) 0x04) {
+            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
+            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex1 - 1) * 20, 20);
+            byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex2 - 1) * 20, 20);
+            lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket, threePacket);
+//            losePacketList.add(onePacket);
+//            losePacketList.add(twoPacket);
+//            losePacketList.add(threePacket);
+        } else if (loseTotalByte == (byte) 0x04) {
             //丢四包,responseByte长度为12
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
             int losePacketIndex1 = TransformUtils.byte2Int(responseByte[9]);
             int losePacketIndex2 = TransformUtils.byte2Int(responseByte[10]);
             int losePacketIndex3 = TransformUtils.byte2Int(responseByte[11]);
-            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex - 1, 20);
-            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex1 - 1, 20);
-            byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex2 - 1, 20);
-            byte[] firthPacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex3 - 1, 20);
-            losePacketList.add(onePacket);
-            losePacketList.add(twoPacket);
-            losePacketList.add(threePacket);
-            losePacketList.add(firthPacket);
-        } else if (responseByte[7] == (byte) 0x05) {
+            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
+            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex1 - 1) * 20, 20);
+            byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex2 - 1) * 20, 20);
+            byte[] firthPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex3 - 1) * 20, 20);
+            lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket, threePacket, firthPacket);
+//            losePacketList.add(onePacket);
+//            losePacketList.add(twoPacket);
+//            losePacketList.add(threePacket);
+//            losePacketList.add(firthPacket);
+        } else if (loseTotalByte == (byte) 0x05) {
             //丢五包,responseByte长度为13
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
             int losePacketIndex1 = TransformUtils.byte2Int(responseByte[9]);
             int losePacketIndex2 = TransformUtils.byte2Int(responseByte[10]);
             int losePacketIndex3 = TransformUtils.byte2Int(responseByte[11]);
             int losePacketIndex4 = TransformUtils.byte2Int(responseByte[12]);
-            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex - 1, 20);
-            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex1 - 1, 20);
-            byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex2 - 1, 20);
-            byte[] firthPacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex3 - 1, 20);
-            byte[] fifthPacket = TransformUtils.subBytes(currentFrameBytes, losePacketIndex4 - 1, 20);
-            losePacketList.add(onePacket);
-            losePacketList.add(twoPacket);
-            losePacketList.add(threePacket);
-            losePacketList.add(firthPacket);
-            losePacketList.add(fifthPacket);
-        } else if (responseByte[7] == (byte) 0xFF) {
+            byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
+            byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex1 - 1) * 20, 20);
+            byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex2 - 1) * 20, 20);
+            byte[] firthPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex3 - 1) * 20, 20);
+            byte[] fifthPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex4 - 1) * 20, 20);
+            lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket, threePacket, firthPacket, fifthPacket);
+//            losePacketList.add(onePacket);
+//            losePacketList.add(twoPacket);
+//            losePacketList.add(threePacket);
+//            losePacketList.add(firthPacket);
+//            losePacketList.add(fifthPacket);
+        } else if (loseTotalByte == (byte) 0xFF) {
             //丢五包以上,responseByte长度为9
-            return losePacketList;
+            return new byte[]{loseCurrentByte};
         }
-        return losePacketList;
+        return lostPacketBytes;
     }
 }

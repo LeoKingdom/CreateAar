@@ -272,12 +272,29 @@ public class BluetoothHelper {
         BleManager.getInstance().write(bleDevice, this.uuidHelper.getServiceUuid(), this.uuidHelper.getWriteUuid(), dates, new BleWriteCallback() {
             public void onWriteSuccess(int current, int total, byte[] justWrite) {
                 listener.onWriteSuccess(current, total, justWrite);
-                Log.i("writeblll----", TransformUtils.bytesToHexString(justWrite));
+//                Log.i("writeblll----", TransformUtils.bytesToHexString(justWrite));
             }
 
             public void onWriteFailure(BleException exception) {
                 listener.onWriteFailure(exception);
-                Log.e("writeblll---",exception.toString());
+//                Log.e("writeblll---",exception.toString());
+
+            }
+        });
+    }
+
+    public void write(BleDevice bleDevice, byte[] dates,boolean nextPacketSuccess,long betweenPacketInterval ,final BluetoothHelper.WriteListener listener) {
+        BleManager.getInstance().setIntervalBetweenPacket(betweenPacketInterval);
+        BleManager.getInstance().setWhenNextPacketSuccess(nextPacketSuccess);
+        BleManager.getInstance().write(bleDevice, this.uuidHelper.getServiceUuid(), this.uuidHelper.getWriteUuid(), dates, new BleWriteCallback() {
+            public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                listener.onWriteSuccess(current, total, justWrite);
+//                Log.i("writeblll----", TransformUtils.bytesToHexString(justWrite));
+            }
+
+            public void onWriteFailure(BleException exception) {
+                listener.onWriteFailure(exception);
+//                Log.e("writeblll---",exception.toString());
 
             }
         });
@@ -297,7 +314,7 @@ public class BluetoothHelper {
 
     private void initBle(Application application) {
         this.bleManager.init(application);
-        this.bleManager.enableLog(true).setReConnectCount(5, 5000L).setConnectOverTime(20000L).setOperateTimeout(5000);
+        this.bleManager.enableLog(true).setReConnectCount(5, 5000L).setConnectOverTime(20000L).setOperateTimeout(600000);
     }
 
     private BleScanRuleConfig scanRule(boolean isFuzzy, String address, String name) {

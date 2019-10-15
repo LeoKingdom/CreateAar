@@ -1,4 +1,4 @@
-package com.ly.createaar;
+package com.ly.bluetoothhelper.helper;
 
 import android.app.Application;
 import android.bluetooth.BluetoothGatt;
@@ -11,7 +11,6 @@ import com.clj.fastble.BleManager;
 import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.utils.BleLog;
-import com.ly.bluetoothhelper.helper.BluetoothHelper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,8 +21,8 @@ import java.util.Map;
  * date: 2019/6/5 10:25
  * version: 1.0
  */
-public class VirtualLeashHelper {
-    private static VirtualLeashHelper virtualLeashHelper;
+public class BLEHelper {
+    private static BLEHelper bleHelper;
 
     public BluetoothHelper getBluetoothHelper() {
         return bluetoothHelper;
@@ -50,26 +49,26 @@ public class VirtualLeashHelper {
         return disConnDeviceMap;
     }
 
-    private VirtualLeashHelper() {
+    private BLEHelper() {
 
 
     }
 
-    public VirtualLeashHelper init(Application application) {
+    public BLEHelper init(Application application) {
         bluetoothHelper = new BluetoothHelper(application);
         bleManager = bluetoothHelper.getBleManager();
         return this;
     }
 
-    public static VirtualLeashHelper getInstance() {
-        if (virtualLeashHelper == null) {
-            synchronized (VirtualLeashHelper.class) {
-                if (virtualLeashHelper == null) {
-                    virtualLeashHelper = new VirtualLeashHelper();
+    public static BLEHelper getInstance() {
+        if (bleHelper == null) {
+            synchronized (BLEHelper.class) {
+                if (bleHelper == null) {
+                    bleHelper = new BLEHelper();
                 }
             }
         }
-        return virtualLeashHelper;
+        return bleHelper;
     }
 
     /**
@@ -146,11 +145,11 @@ public class VirtualLeashHelper {
                         disConnDeviceMap.remove(entry.getKey());
                     }
                 }
-                ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
-                Message message = handler.obtainMessage();
-                message.what = 1;
-                message.obj = bleDevice.getName();
-                handler.sendMessage(message);
+//                ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
+//                Message message = handler.obtainMessage();
+//                message.what = 1;
+//                message.obj = bleDevice.getName();
+//                handler.sendMessage(message);
             }
         }
 
@@ -179,8 +178,8 @@ public class VirtualLeashHelper {
             //            disConnDeviceMap.put(device.getMac(), device);
             disConnDeviceMap.put(device.getName(), device); //测试
             bluetoothHelper.scanAndConnect(false, null, device.getName(),bleHandleListener);
-            ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
-            handler.sendEmptyMessageDelayed(0, bleManager.getReConnectCount() * bleManager.getReConnectInterval());
+//            ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
+//            handler.sendEmptyMessageDelayed(0, bleManager.getReConnectCount() * bleManager.getReConnectInterval());
             for (Map.Entry<String, BleDevice> entry : connDeviceMap.entrySet()) {
                 //测试使用name,因为mac地址一直改变
 //                if (entry.getKey().equals(bleDevice.getMac())){

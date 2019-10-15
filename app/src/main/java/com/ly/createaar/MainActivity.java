@@ -3,32 +3,34 @@ package com.ly.createaar;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
-import android.os.Binder;
+import android.content.res.AssetManager;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.clj.fastble.BleManager;
-import com.clj.fastble.callback.BleNotifyCallback;
-import com.clj.fastble.callback.BleWriteCallback;
 import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
+import com.ly.bluetoothhelper.beans.MsgBean;
+import com.ly.bluetoothhelper.callbacks.DataCallback;
+import com.ly.bluetoothhelper.callbacks.NotifyCallback;
+import com.ly.bluetoothhelper.callbacks.ProgressCallback;
+import com.ly.bluetoothhelper.callbacks.WriteCallback;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
+import com.ly.bluetoothhelper.service.OTAUpgradeService;
 import com.ly.bluetoothhelper.utils.ActionUtils;
-import com.ly.bluetoothhelper.utils.CRCCheckUtils;
 import com.ly.bluetoothhelper.utils.DataPacketUtils;
 import com.ly.bluetoothhelper.utils.OrderSetUtils;
 import com.ly.bluetoothhelper.utils.SharePreferenceUtils;
@@ -43,9 +45,7 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
-import java.util.Arrays;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Queue;
 
 public class MainActivity extends AppCompatActivity {
@@ -63,6 +63,7 @@ public class MainActivity extends AppCompatActivity {
     private Queue<byte[]> packetQueue = new LinkedList<>();
     private int totalFrame; //总帧数
     int currentFrame = 1; //当前帧
+    private int currentBin;//当前bin文件
     //文件字节流
     private byte[] initialTotalBytes = null;
     private byte[] currentFrameBytes = null;
@@ -73,194 +74,12 @@ public class MainActivity extends AppCompatActivity {
     private boolean isBin = false;
     private int totalBin = 0;//总的bin文件数
     private DecimalFormat decimalFormat;
-    @SuppressLint("HandlerLeak")
-    private Handler handler = new Handler() {
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            switch (msg.what) {
-
-                case ActionUtils.ACTION_OTA_NOTIFY:
-                    break;
-
-                case ActionUtils.ACTION_OTA_ORDER_I: //发送ota升级命令(含校验bin的合法性)
-                    byte[] oadOrder = OrderSetUtils.ORDER_OAD;
-                    byte[] headByte = TransformUtils.subBytes(initialTotalBytes, 0, 5);
-                    byte[] checkBytes = TransformUtils.combineArrays(oadOrder, headByte);
-
-//                    BleManager.getInstance().write(bleDevice, "00005500-d102-11e1-9b23-00025b00a5a5", "00005501-d102-11e1-9b23-00025b00a5a5", checkBytes, new BleWriteCallback() {
-//
-//                        @Override
-//                        public void onWriteSuccess(int current, int total, byte[] justWrite) {
-//                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_VALIFY_OUTTIME, 60000);
-//                            Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-//                        }
-//
-//                        @Override
-//                        public void onWriteFailure(BleException exception) {
-//
-//                        }
-//                    });
-                    bluetoothHelper1.write(bleDevice, checkBytes, new BluetoothHelper.WriteListener() {
-                        @Override
-                        public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_VALIFY_OUTTIME, 60000);
-                            Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-                        }
-
-                        @Override
-                        public void onWriteFailure(BleException exception) {
-                            Log.e("writeException----", "" + exception.toString());
-                        }
-                    });
-                    break;
-                case ActionUtils.ACTION_OTA_DATA_HEAD_I: //发送ota数据帧帧头
-                    Log.e("frame----", currentFrame + "/" + totalFrame);
-                    if (currentFrame > totalFrame) return;
-                    byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
-                    byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
-
-                    bluetoothHelper1.write(bleDevice, dataHeadBytes, new BluetoothHelper.WriteListener() {
-                        @Override
-                        public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                            if (CURRENT_WHAT == ActionUtils.ACTION_OTA_DATA_HEAD_I) { //数据头写入成功
-                                CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_DATA_I;
-                                handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_DATA_I).sendToTarget();
-                            }
-                            Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-                        }
-
-                        @Override
-                        public void onWriteFailure(BleException exception) {
-                            Log.e("writeException----", "" + exception.toString());
-                        }
-                    });
-                    break;
-
-                case ActionUtils.ACTION_OTA_DATA_DATA_I: //发送ota数据帧
-                    if (currentFrame <= totalFrame) {
-                        currentFrameBytes = DataPacketUtils.sortEachFrame(initialTotalBytes, currentFrame, totalFrame);
-//                        Log.e("nnnn----",Arrays.toString(initialTotalBytes));
-//                        byte crcByte = CRCCheckUtils.calcCrc8(currFrameBytes);
-//                        if (currentFrame == totalFrame) {
-//                            if (currFrameBytes.length % 20 == 0) {
-//                                int length = currFrameBytes.length / 20;
-//                                currFrameBytes = TransformUtils.combineArrays(currFrameBytes, new byte[]{(byte) length, crcByte});
-//                            }
-//                        } else {
-//                            currFrameBytes = TransformUtils.combineArrays(currFrameBytes, new byte[]{crcByte});
-//                        }
-                        currentPacket = currentFrameBytes.length % 20 == 0 ? currentFrameBytes.length / 20 : currentFrameBytes.length / 20 + 1;
-                        progressDialogWidget.getProgressBar().setMax(currentPacket);
-                        progressDialogWidget.getProgressNumTv().setText(0 + "%");
-                        progressDialogWidget.show();
-                        writePacket(currentFrameBytes);
-
-                    }
-                    break;
-                case ActionUtils.ACTION_OTA_DATA_LOSE_I:
-                    if (loseList == null) { //完整接收一帧数据
-                        currentFrame++;
-                        handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 300);
-                    } else {
-                        if (loseList.size() == 0) { //丢包过多,需重发此帧
-                            handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_DATA_I).sendToTarget();
-                        } else {
-                            byte[] combineByte = null;
-                            for (int i = 0; i < loseList.size(); i++) {
-                                byte[] eachPacket = loseList.get(i);
-                                if (combineByte == null) {
-                                    combineByte = eachPacket;
-                                } else {
-                                    combineByte = TransformUtils.combineArrays(combineByte, eachPacket);
-                                }
-                            }
-                            //发送丢失的包,不需要重发帧头
-                            writePacket(combineByte);
-                        }
-                    }
-                    break;
-
-                case ActionUtils.ACTION_OTA_VALIFY_OUTTIME:
-                    if (!isBin) {
-                        toast("校验超时");
-                        loadingWidget.hide();
-                    }
-                    break;
-                case ActionUtils.ACTION_OTA_PACK_INTERVAL_TIME:
-                    if (i < eachLength) {
-                        writePacket(currentFrameBytes);
-                    }
-                    break;
-            }
-        }
-    };
-
-
-    private byte[] temBytes = null;
-    private int i = 0;
-    int eachLength;
-
-    private void writePacket(byte[] eachFrameBytes) {
-
-//        Log.e("device----", bleDevice + "/" + Arrays.toString(eachFrameBytes));
-//        BleManager.getInstance().write(bleDevice,"00005500-d102-11e1-9b23-00025b00a5a5","00005501-d102-11e1-9b23-00025b00a5a5",eachFrameBytes,new BleWriteCallback(){
-//
-//            @Override
-//            public void onWriteSuccess(int current, int total, byte[] justWrite) {
-////                Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-//            }
-//
-//            @Override
-//            public void onWriteFailure(BleException exception) {
-//
-//            }
-//        });
-        boolean b = eachFrameBytes.length % 20 == 0;
-        eachLength = b ? (eachFrameBytes.length / 20) : (eachFrameBytes.length / 20 + 1);
-        int temp = 20;
-
-        if (!b) {
-            if (i == eachLength - 1) {
-                temp = eachFrameBytes.length - 20 * (eachLength - 1);
-            }
-        }
-        temBytes = TransformUtils.subBytes(eachFrameBytes, i * 20, temp);
-//
-//
-        bluetoothHelper1.write(bleDevice, temBytes, new BluetoothHelper.WriteListener() {
-            @Override
-            public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                cPacket = current;
-                if (i < eachLength) {
-                    i++;
-                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_PACK_INTERVAL_TIME, 2000);
-                progressDialogWidget.getCurrentPacket().setText("当前传送: 第" + currentFrame + "帧,第" + (i + 1) + "包");
-                }
-
-                if (currentPacket == current) {
-                    float percent = (float) currentFrame / totalFrame * 100;
-                    progressDialogWidget.getProgressBar().setProgress((int) percent);
-                    progressDialogWidget.getProgressNumTv().setText(decimalFormat.format(percent) + "%");
-//                    currentFrame++;
-//                    CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_HEAD_I;
-//                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 300);
-                }
-//                Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-            }
-
-            @Override
-            public void onWriteFailure(BleException exception) {
-
-            }
-        });
-    }
-
     private ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             OTAUpgradeService.LocalBinder binder = (OTAUpgradeService.LocalBinder) service;
             otaUpgradeService = binder.getService();
+            setCallback();
         }
 
         @Override
@@ -268,7 +87,130 @@ public class MainActivity extends AppCompatActivity {
 
         }
     };
-    private List<byte[]> loseList;
+
+    private void setCallback() {
+        otaUpgradeService.setNotifyCallback(new NotifyCallback() {
+            @Override
+            public void charactoristicChange(int action,byte[] backBytes) {
+
+            }
+
+            @Override
+            public void success() {
+
+            }
+
+            @Override
+            public void fail(Object o) {
+
+            }
+
+            @Override
+            public void noDevice() {
+
+            }
+        });
+
+        otaUpgradeService.setWriteCallback(new WriteCallback() {
+            @Override
+            public void writeSuccess(int actionType, int current, int total, byte[] justWrite) {
+                if (actionType==ActionUtils.ACTION_OTA_ORDER_I){
+
+                }else if (actionType==ActionUtils.ACTION_OTA_DATA_HEAD_I){
+
+                }else {
+
+                }
+            }
+
+            @Override
+            public void success() {
+
+            }
+
+            @Override
+            public void fail(Object o) {
+
+            }
+
+            @Override
+            public void noDevice() {
+
+            }
+        });
+
+        otaUpgradeService.setProgressCallback(new ProgressCallback() {
+            @Override
+            public void setMax(int max) {
+                progressDialogWidget.setProgressMax(currentPacket);
+                progressDialogWidget.setProgressNumTvText(0 + "%");
+                progressDialogWidget.show();
+            }
+
+            @Override
+            public void setProgress(float percent,int current,int currentFrame) {
+                progressDialogWidget.getCurrentPacket().setText("当前传送: 第" + currentFrame + "帧,第" + current + "包");
+                progressDialogWidget.getProgressBar().setProgress((int) percent);
+                progressDialogWidget.getProgressNumTv().setText(decimalFormat.format(percent) + "%");
+            }
+
+            @Override
+            public void success() {
+
+            }
+
+            @Override
+            public void fail(Object o) {
+
+            }
+
+            @Override
+            public void noDevice() {
+
+            }
+        });
+
+        otaUpgradeService.setDataCallback(new DataCallback() {
+            @Override
+            public void nextFrame(int currentFrame, int totalFrame) {
+
+            }
+
+            @Override
+            public void reSend() {
+
+            }
+
+            @Override
+            public void done() {
+                //传输完一个bin文件回调
+
+            }
+
+            @Override
+            public void checkOutTime() {
+                toast("data loading fail,try again");
+            }
+
+            @Override
+            public void binChecking() {
+                loadingWidget.setLoadingText("Data Loading...");
+                loadingWidget.show();
+            }
+
+            @Override
+            public void binCheckDone(boolean isBin) {
+                loadingWidget.hide();
+                if (!isBin){
+                    toast("It is not a bin file ");
+                }else {
+
+                }
+            }
+        });
+    }
+
+    private byte[] loseList;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -280,17 +222,8 @@ public class MainActivity extends AppCompatActivity {
         progressDialogWidget = findViewById(R.id.progress_dialog);
         loadingWidget = findViewById(R.id.main_loading_widget);
         textView = findViewById(R.id.write_tv);
-        bluetoothHelper = VirtualLeashHelper.getInstance().init(getApplication());
-        bluetoothHelper1 = new BluetoothHelper(getApplication());
+        TextView txtTagProgress = progressDialogWidget.getProgressNumTv();
         decimalFormat = new DecimalFormat("#.00");
-        bluetoothHelper1.initUuid(null,
-                "00005500-d102-11e1-9b23-00025b00a5a5",
-                "00005501-d102-11e1-9b23-00025b00a5a5",
-                "00005501-d102-11e1-9b23-00025b00a5a5",
-                "00005501-d102-11e1-9b23-00025b00a5a5",
-                "00005501-d102-11e1-9b23-00025b00a5a5",
-                "00005501-d102-11e1-9b23-00025b00a5a5");
-//        myHandler = new MyHandler(this);
         combinePacket();
         checkLocation();
     }
@@ -319,105 +252,17 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(this, "" + msg, Toast.LENGTH_LONG).show();
     }
 
-    public void read(View view) {
-
-        if (bleDevice == null) {
-            toast("设备未连接");
-            return;
-        }
-        byte[] bytes = null;
-        byte[] headBytes = null;
-        try {
-            InputStream inputStream = getResources().getAssets().open("ap");
-            bytes = TransformUtils.streamToByte(inputStream);
-            headBytes = TransformUtils.subBytes(bytes, 0, 5);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        byte[] orderBytes = null;
-        if (view.getId() == R.id.ota) {
-            ota_order_send = true;
-            loadingWidget.setLoadingText("正在校验...");
-            loadingWidget.show();
-            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 100);
-        } else if (view.getId() == R.id.version) {
-            orderBytes = OrderSetUtils.ORDER_VERSION;
-            writePacket(orderBytes);
-        }
-
-//        bluetoothHelper1.write(bleDevice, orderBytes, new BluetoothHelper.WriteListener() {
-//            @Override
-//            public void onWriteSuccess(int current, int total, byte[] justWrite) {
-//                Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-//            }
-//
-//            @Override
-//            public void onWriteFailure(BleException exception) {
-//
-//            }
-//        });
-
-//        bluetoothHelper1.read(bleDevice, new BluetoothHelper.ReadListener() {
-//            @Override
-//            public void onReadSuccess(byte[] data) {
-//                toast(TransformUtils.bytesToHexString(data));
-//            }
-//
-//            @Override
-//            public void onReadFailure(BleException exception) {
-//
-//            }
-//        });
-    }
 
     public void clear(View view) {
         editText.setText("");
     }
 
-    public void write(View view) {
-        if (bleDevice == null) {
-            toast("设备未连接");
-            return;
-        }
-        if (view.getId() == R.id.ota_data) {
-            handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_HEAD_I).sendToTarget();
-        } else {
-            String msg = editText.getText().toString().trim();
-//        if (TextUtils.isEmpty(msg)) return;
-            byte[] datas = TransformUtils.getHexBytes(msg);
-            bluetoothHelper1.write(bleDevice, datas, new BluetoothHelper.WriteListener() {
-                @Override
-                public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                    Log.e("writeSuccess---", "current----" + current + "/total---" + total + "/each---" + TransformUtils.bytesToHexString(justWrite));
-                    textView.setText("当前写入: " + TransformUtils.bytesToHexString(datas));
-                }
-
-                @Override
-                public void onWriteFailure(BleException exception) {
-
-                }
-            });
-        }
-    }
-
-    private byte[] currentPacket(byte[] datas, int curr, int total) {
-        byte[] eachFrameBytes = null;
-        if (curr == total - 1) {
-            //最后一帧,不一定是4kb
-            int lastPacketLenght = datas.length - (total - 1) * 4 * 1024;
-            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, lastPacketLenght);
-        } else {
-            //每一帧,长度为4kb
-            eachFrameBytes = TransformUtils.subBytes(datas, curr * 1024, 4 * 1024);
-        }
-        return eachFrameBytes;
-    }
 
     private byte[] combinePacket() {
         //合并后的字节数组
         byte[] lastBytes = null;
+        AssetManager assetManager=getAssets();
+//        assetManager.
         try {
             InputStream inputStream = getResources().getAssets().open("ap");
             lastBytes = DataPacketUtils.combinePacket(inputStream);
@@ -430,119 +275,12 @@ public class MainActivity extends AppCompatActivity {
         return lastBytes;
     }
 
-    public void notify(View view) {
-        if (bleDevice == null) {
-            toast("设备未连接");
-            return;
-        }
-
-//        BleManager.getInstance().notify(bleDevice, "00005500-d102-11e1-9b23-00025b00a5a5",
-//                "00005501-d102-11e1-9b23-00025b00a5a5", new BleNotifyCallback() {
-//                    @Override
-//                    public void onNotifySuccess() {
-//                        toast("通知开启成功");
-//                        Log.e("notify---", "success");
-//                    }
-//
-//                    @Override
-//                    public void onNotifyFailure(BleException e) {
-//                        toast("通知开启失败");
-//                        Log.e("notify---", "fail---" + e.getDescription());
-//                    }
-//
-//                    @Override
-//                    public void onCharacteristicChanged(byte[] data) {
-//                        Log.e("notifyData----", TransformUtils.bytesToHexString(data));
-//                        if (data.length > 3) {
-//                            byte responeByte = data[data.length - 1];
-//                            byte moduId = data[data.length - 2];
-//                            byte eventId = data[data.length - 3];
-//                            //module Id                                     //event Id
-//                            if (moduId == (byte) 0x02 && eventId == (byte) 0x20) { //ota校验命令
-//                                if (responeByte == (byte) 0xFF) {
-//                                    toast("校验失败");
-//                                    loadingWidget.hide();
-//                                    Log.e("ota-check----", "check fail");
-//                                } else {
-//                                    //校验bin包成功,可以开始传输ota包,
-//                                    isBin = true;
-//                                    toast("校验成功");
-//                                    CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_HEAD_I;
-//                                    loadingWidget.hide();
-////                            handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_HEAD_I).sendToTarget();
-//                                }
-//                            } else if (moduId == (byte) 0x03 && eventId == (byte) 0x20) { //ota数据包
-//                                //成功接收完一帧,开始发送下一帧
-//                                //0xAB 0x00 0x04 0x03  0x01  0x20 0x03  0x03  0x01 0x0A 0x64 收包回复
-//                                //帧头 数据-长度 总帧 当前帧 MId  EId  丢包数 之后为丢包序号(上限五包,超过填0xFF)
-//                                //若出现丢包情况,尚未确定是继续下一帧还是先补包
-//                                List<byte[]> losePacketList = DataPacketUtils.losePacketList(initialTotalBytes, data);
-//                                loseList = losePacketList;
-//                                handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_LOSE_I).sendToTarget();
-//
-//                            }
-//                        }
-//
-//                    }
-//                });
-
-        bluetoothHelper1.setNotify(bleDevice, new BluetoothHelper.BleNotifyListener() {
-            @Override
-            public void onNotifySuccess() {
-                toast("通知开启成功");
-                Log.e("notify---", "success");
-            }
-
-            @Override
-            public void onNotifyFailed(BleException e) {
-                toast("通知开启失败");
-                Log.e("notify---", "fail---" + e.getDescription());
-            }
-
-            @Override
-            public void onCharacteristicChanged(byte[] data) {
-                Log.e("notifyData----", TransformUtils.bytesToHexString(data));
-                if (data.length > 3) {
-                    byte responeByte = data[data.length - 1];
-                    byte moduId = data[data.length - 2];
-                    byte eventId = data[data.length - 3];
-                    //module Id                                     //event Id
-                    if (moduId == (byte) 0x02 && eventId == (byte) 0x20) { //ota校验命令
-                        if (responeByte == (byte) 0xFF) {
-                            toast("校验失败");
-                            loadingWidget.hide();
-                            Log.e("ota-check----", "check fail");
-                        } else {
-                            //校验bin包成功,可以开始传输ota包,
-                            isBin = true;
-                            toast("校验成功");
-                            CURRENT_WHAT = ActionUtils.ACTION_OTA_DATA_HEAD_I;
-                            loadingWidget.hide();
-//                            handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_HEAD_I).sendToTarget();
-                        }
-                    } else if (moduId == (byte) 0x03 && eventId == (byte) 0x20) { //ota数据包
-                        //成功接收完一帧,开始发送下一帧
-                        //0xAB 0x00 0x04 0x03  0x01  0x20 0x03  0x03  0x01 0x0A 0x64 收包回复
-                        //帧头 数据-长度 总帧 当前帧 MId  EId  丢包数 之后为丢包序号(上限五包,超过填0xFF)
-                        //若出现丢包情况,尚未确定是继续下一帧还是先补包
-                        List<byte[]> losePacketList = DataPacketUtils.losePacketList(initialTotalBytes, data);
-                        loseList = losePacketList;
-                        handler.obtainMessage(ActionUtils.ACTION_OTA_DATA_LOSE_I).sendToTarget();
-
-                    }
-                }
-
-
-            }
-        });
-    }
-
-    public void scan(View view) {
+    public void write(View view) {
         Intent intent = new Intent(this, OTAUpgradeService.class);
         intent.setAction(ActionUtils.ACTION_DEVICE_SCAN);
-        intent.putExtra("mac_address", "01:02:04:05:06:09");
+        intent.putExtra("mac_address", "01:02:04:05:A6:14");
         intent.putExtra("dataByte", initialTotalBytes);
-        startService(intent);
+        bindService(intent,connection, Context.BIND_AUTO_CREATE);
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
@@ -574,7 +312,7 @@ public class MainActivity extends AppCompatActivity {
         this.bleDevice = null;
         loadingWidget.hide();
         scanAndConnTv.setText("扫描与连接(已断开)");
-        SharePreferenceUtils.setValue(this, "data-frame", cPacket + "," + currentFrame + "," + totalFrame);
+        SharePreferenceUtils.setValue(this, "data-frame", cPacket + "," + currentFrame + "," + totalFrame + "," + currentBin);
     }
 
     public void scanFail() {

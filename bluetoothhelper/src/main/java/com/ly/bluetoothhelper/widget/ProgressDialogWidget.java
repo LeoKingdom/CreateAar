@@ -3,6 +3,7 @@ package com.ly.bluetoothhelper.widget;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
@@ -24,6 +25,9 @@ public class ProgressDialogWidget extends RelativeLayout {
     private ImageView ivBg;//背景
     private ProgressBar progressBar;//进度条
     private TextView progressNumTv;//进度
+    private boolean outSideDimiss=false;
+
+    private Button closeBtn;//关闭按钮
 
 
     private TextView currentPacket;
@@ -46,8 +50,51 @@ public class ProgressDialogWidget extends RelativeLayout {
         progressBar=inflate.findViewById(R.id.progress_bar);
         progressNumTv=inflate.findViewById(R.id.progress_bar_tv);
         currentPacket=inflate.findViewById(R.id.progress_tv_pro);
+        closeBtn=inflate.findViewById(R.id.progress_bar_close_btn);
         ivBg.setOnClickListener(null);
+    }
 
+    public void setOutsideDimiss(boolean outsideDimiss){
+        this.outSideDimiss=outsideDimiss;
+        if (outsideDimiss){
+            ivBg.setOnClickListener((view)->{
+                hide();
+            });
+        }else {
+            ivBg.setOnClickListener(null);
+        }
+    }
+
+    public void setProgressNumTvText(String text){
+        if (progressNumTv!=null){
+            progressNumTv.setText(text);
+        }
+    }
+
+    public void setProgress(int progress){
+        if (progressBar!=null){
+            progressBar.setProgress(progress);
+        }
+    }
+
+    public void setProgressMax(int max){
+        if (progressBar!=null){
+            progressBar.setMax(max);
+        }
+    }
+
+    public void showCloseBtn(){
+        if (closeBtn!=null){
+            closeBtn.setVisibility(VISIBLE);
+        }
+    }
+
+    public void closeListener(){
+        if (closeBtn!=null){
+            closeBtn.setOnClickListener((view)-> {
+              hide();
+            });
+        }
     }
 
     /**
@@ -81,6 +128,11 @@ public class ProgressDialogWidget extends RelativeLayout {
         tvCancel.setVisibility(VISIBLE);
         tvOk.setVisibility(VISIBLE);
     }
+
+    public Button getCloseBtn() {
+        return closeBtn;
+    }
+
 
     /**
      * 标题
