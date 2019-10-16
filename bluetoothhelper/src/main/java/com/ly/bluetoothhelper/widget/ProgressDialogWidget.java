@@ -89,6 +89,13 @@ public class ProgressDialogWidget extends RelativeLayout {
         }
     }
 
+    public void showCloseBtnWithText(String txt){
+        if (closeBtn!=null){
+            closeBtn.setVisibility(VISIBLE);
+            closeBtn.setText(txt);
+        }
+    }
+
     public void closeListener(){
         if (closeBtn!=null){
             closeBtn.setOnClickListener((view)-> {

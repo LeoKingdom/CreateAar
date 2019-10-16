@@ -13,4 +13,5 @@ public interface DataCallback {
     void checkOutTime();
     void binChecking();
     void binCheckDone(boolean isBin);
+    void fileNotFound(String msg);
 }

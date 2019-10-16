@@ -45,7 +45,9 @@ import org.greenrobot.eventbus.ThreadMode;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Queue;
 
 public class MainActivity extends AppCompatActivity {
@@ -74,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isBin = false;
     private int totalBin = 0;//总的bin文件数
     private DecimalFormat decimalFormat;
+    private List<String> fileNameList=new ArrayList<>();
     private ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -148,8 +151,8 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void setProgress(float percent,int current,int currentFrame) {
-                progressDialogWidget.getCurrentPacket().setText("当前传送: 第" + currentFrame + "帧,第" + current + "包");
+            public void setProgress(float percent,int current,int currentFrame,int currentBin) {
+                progressDialogWidget.getCurrentPacket().setText("当前传送: 第"+currentBin+"个文件,第" + currentFrame + "帧,第" + current + "包");
                 progressDialogWidget.getProgressBar().setProgress((int) percent);
                 progressDialogWidget.getProgressNumTv().setText(decimalFormat.format(percent) + "%");
             }
@@ -183,8 +186,9 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void done() {
-                //传输完一个bin文件回调
-
+                //传输完成
+                progressDialogWidget.setProgressNumTvText("传输完成!");
+                progressDialogWidget.showCloseBtnWithText("Done");
             }
 
             @Override
@@ -194,8 +198,8 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void binChecking() {
-                loadingWidget.setLoadingText("Data Loading...");
-                loadingWidget.show();
+                loadingWidget.setLoadingText("data loading...");
+//                loadingWidget.show();
             }
 
             @Override
@@ -206,6 +210,11 @@ public class MainActivity extends AppCompatActivity {
                 }else {
 
                 }
+            }
+
+            @Override
+            public void fileNotFound(String msg) {
+
             }
         });
     }
@@ -261,9 +270,18 @@ public class MainActivity extends AppCompatActivity {
     private byte[] combinePacket() {
         //合并后的字节数组
         byte[] lastBytes = null;
-        AssetManager assetManager=getAssets();
+
 //        assetManager.
         try {
+            AssetManager assetManager=getAssets();
+            String[] assetsList = assetManager.list("");
+            for (String name:assetsList){
+                if (name.endsWith(".patch")){
+                    fileNameList.add(name);
+                }
+                Log.e("name---",name);
+            }
+
             InputStream inputStream = getResources().getAssets().open("ap");
             lastBytes = DataPacketUtils.combinePacket(inputStream);
             InputStream inputStream1 = getResources().getAssets().open("ap");
@@ -276,6 +294,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void write(View view) {
+        loadingWidget.setLoadingText("device connecting...");
+        loadingWidget.show();
         Intent intent = new Intent(this, OTAUpgradeService.class);
         intent.setAction(ActionUtils.ACTION_DEVICE_SCAN);
         intent.putExtra("mac_address", "01:02:04:05:A6:14");
@@ -311,7 +331,7 @@ public class MainActivity extends AppCompatActivity {
     private void disconnect(BleDevice device) {
         this.bleDevice = null;
         loadingWidget.hide();
-        scanAndConnTv.setText("扫描与连接(已断开)");
+        toast("设备已断开");
         SharePreferenceUtils.setValue(this, "data-frame", cPacket + "," + currentFrame + "," + totalFrame + "," + currentBin);
     }
 

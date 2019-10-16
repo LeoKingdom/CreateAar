@@ -1,5 +1,7 @@
 package com.ly.bluetoothhelper.helper;
 
+import com.clj.fastble.data.BleDevice;
+
 /**
  * author: LingYun
  * email: SWD-yun.ling@jrdcom.com
@@ -11,10 +13,22 @@ package com.ly.bluetoothhelper.helper;
 public class ESimHelper {
 
 
-    public void esimActive(){
+    public void esimActive(BleDevice bleDevice){
+        if (bleDevice==null){
+
+        }
+    }
+
+    /**
+     * 激活之前的各种检查(ble)接口回调
+     */
+    public interface ActiveCheckCallback{
 
     }
 
+    /**
+     * 激活状态接口回调
+     */
     public interface EsimActiveCallback{
         void activeSuccess(String msg);
         void activeFail(String error);

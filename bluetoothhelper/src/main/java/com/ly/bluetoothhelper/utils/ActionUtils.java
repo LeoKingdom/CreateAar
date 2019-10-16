@@ -29,6 +29,8 @@ public class ActionUtils {
     public static final int ACTION_NOTIFY = 14; //开启通知(蓝牙)
     public static final int ACTION_OTA_VALIFY_OUTTIME = 11; //bin校验超时
     public static final int ACTION_OTA_PACK_INTERVAL_TIME = 12; //
-    public static final int ACTION_OTA_BIN_DATA = 13; //当前bin数据流
+    public static final int ACTION_OTA_NEXT_BIN = 13; //下一个bin数据流
+    public static final int ACTION_OTA_RECONNECT = 14; //断开连接
+    public static final int ACTION_OTA_RECONNECT_SEND = 15; //断开连接,重连继续发送
 
 }
