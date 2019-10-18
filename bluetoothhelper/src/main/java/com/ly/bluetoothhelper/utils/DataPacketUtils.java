@@ -244,7 +244,7 @@ public class DataPacketUtils {
      * @return
      */
     public static byte[] eachFrameFirstPacket(int dataLength, int totalFrame, int currFrame) {
-        Log.e("dataLength---",dataLength+"");
+        Log.e("dataLength---", dataLength + "");
         byte[] frameOrderByte = new byte[7];
         int l = dataLength / 256;
         int m = dataLength % 256;
@@ -286,6 +286,7 @@ public class DataPacketUtils {
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
             byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
             lostPacketBytes = onePacket;
+
 //            losePacketList.add(onePacket);
         } else if (loseTotalByte == (byte) 0x02) {
             //丢两包,responseByte长度为10
@@ -344,6 +345,9 @@ public class DataPacketUtils {
         } else if (loseTotalByte == (byte) 0xFF) {
             //丢五包以上,responseByte长度为9
             return new byte[]{loseCurrentByte};
+        }
+        if (lostPacketBytes != null) {
+            Log.e("losePacket----", TransformUtils.bytesToHexString(lostPacketBytes));
         }
         return lostPacketBytes;
     }

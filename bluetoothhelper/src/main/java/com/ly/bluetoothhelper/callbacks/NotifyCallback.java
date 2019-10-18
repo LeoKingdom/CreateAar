@@ -8,4 +8,5 @@ package com.ly.bluetoothhelper.callbacks;
  */
 public interface NotifyCallback extends BaseCallback{
     void charactoristicChange(int action,byte[] backBytes);
+    void deviceReconn();
 }

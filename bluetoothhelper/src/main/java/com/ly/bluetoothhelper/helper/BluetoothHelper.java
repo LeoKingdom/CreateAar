@@ -14,6 +14,7 @@ import android.content.Intent;
 import android.location.LocationManager;
 import android.support.v4.app.Fragment;
 import android.util.Log;
+
 import com.clj.fastble.BleManager;
 import com.clj.fastble.callback.BleGattCallback;
 import com.clj.fastble.callback.BleNotifyCallback;
@@ -34,6 +35,16 @@ import java.util.UUID;
 public class BluetoothHelper {
     private BleManager bleManager = BleManager.getInstance();
     private BleUuidHelper uuidHelper;
+    private boolean ifReconnect=true;
+    public int getReconnectCount() {
+        return RECONNECTCOUNT;
+    }
+
+    public void setReconnectCount(int reconnectCount) {
+        this.RECONNECTCOUNT = reconnectCount;
+    }
+
+    private int RECONNECTCOUNT = 5;
     private BleGattCallback connectCallback = new BleGattCallback() {
         public void onStartConnect() {
         }
@@ -46,7 +57,7 @@ public class BluetoothHelper {
         }
 
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
-            Log.e("conn----", bleDevice.getMac() + "/" + bleDevice.getName());
+//            Log.e("conn----", bleDevice.getMac() + "/" + bleDevice.getName());
             if (BluetoothHelper.this.connectListener != null) {
                 BluetoothHelper.this.connectListener.onConnectSuccess(bleDevice, gatt);
             }
@@ -59,6 +70,11 @@ public class BluetoothHelper {
     private BluetoothHelper.BleConnectListener connectListener;
 
     public BluetoothHelper(Application application) {
+        this.initProperties(application);
+    }
+
+    public BluetoothHelper(Application application, int reConnCount) {
+        this.RECONNECTCOUNT = reConnCount;
         this.initProperties(application);
     }
 
@@ -93,7 +109,7 @@ public class BluetoothHelper {
     @SuppressLint("WrongConstant")
     private static boolean isLocationProviderEnabled(Context context) {
         try {
-            LocationManager locationManager = (LocationManager)context.getSystemService("location");
+            LocationManager locationManager = (LocationManager) context.getSystemService("location");
             boolean gpsProvider = locationManager.isProviderEnabled("gps");
             return gpsProvider;
         } catch (Exception var3) {
@@ -134,13 +150,14 @@ public class BluetoothHelper {
             @Override
             public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
                 super.onCharacteristicChanged(gatt, characteristic);
-                if (characteristicChangeListener!=null){
-                    characteristicChangeListener.onCharacteristicChange(gatt,characteristic);
+                Log.e("change-----", characteristic.getProperties() + "");
+                if (characteristicChangeListener != null) {
+                    characteristicChangeListener.onCharacteristicChange(gatt, characteristic);
                 }
             }
 
             public void onScanFinished(BleDevice bleDevice) {
-                Log.e("device----",bleDevice+"");
+                Log.e("device----", bleDevice + "");
                 if (handleListener != null) {
                     handleListener.onScanFinished(bleDevice);
                 }
@@ -283,7 +300,7 @@ public class BluetoothHelper {
         });
     }
 
-    public void write(BleDevice bleDevice, byte[] dates,boolean nextPacketSuccess,long betweenPacketInterval ,final BluetoothHelper.WriteListener listener) {
+    public void write(BleDevice bleDevice, byte[] dates, boolean nextPacketSuccess, long betweenPacketInterval, final BluetoothHelper.WriteListener listener) {
         BleManager.getInstance().setIntervalBetweenPacket(betweenPacketInterval);
         BleManager.getInstance().setWhenNextPacketSuccess(nextPacketSuccess);
         BleManager.getInstance().write(bleDevice, this.uuidHelper.getServiceUuid(), this.uuidHelper.getWriteUuid(), dates, new BleWriteCallback() {
@@ -314,17 +331,18 @@ public class BluetoothHelper {
 
     private void initBle(Application application) {
         this.bleManager.init(application);
-        this.bleManager.enableLog(true).setReConnectCount(5, 5000L).setConnectOverTime(20000L).setOperateTimeout(600000);
+        this.bleManager.enableLog(true).setReConnectCount(RECONNECTCOUNT, 5000L).setConnectOverTime(20000L).setOperateTimeout(600000);
     }
 
     private BleScanRuleConfig scanRule(boolean isFuzzy, String address, String name) {
-        BleScanRuleConfig ruleConfig = (new com.clj.fastble.scan.BleScanRuleConfig.Builder()).setServiceUuids((UUID[])null).setDeviceMac(address).setDeviceName(isFuzzy, new String[]{name}).setAutoConnect(true).setScanTimeOut(10000L).build();
+        BleScanRuleConfig ruleConfig = (new com.clj.fastble.scan.BleScanRuleConfig.Builder()).setServiceUuids((UUID[]) null).setDeviceMac(address).setDeviceName(isFuzzy, new String[]{name}).setAutoConnect(true).setScanTimeOut(10000L).build();
         return ruleConfig;
     }
 
     private void initProperties(Application application) {
         this.initBle(application);
     }
+
 
     public interface RemoteRssiListener {
         void onRemoteRssi(int var1);
@@ -382,7 +400,7 @@ public class BluetoothHelper {
 
     private CharacteristicChangeListener characteristicChangeListener;
 
-    public interface CharacteristicChangeListener{
+    public interface CharacteristicChangeListener {
         void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic);
     }
 

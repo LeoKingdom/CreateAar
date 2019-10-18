@@ -33,4 +33,5 @@ public class ActionUtils {
     public static final int ACTION_OTA_RECONNECT = 14; //断开连接
     public static final int ACTION_OTA_RECONNECT_SEND = 15; //断开连接,重连继续发送
 
+    public static final int ACTION_DEVICE_RECONNECT = 16;//重新连接设备
 }

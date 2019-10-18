@@ -32,4 +32,13 @@
     <dimen name="dp_30">30dp</dimen>
     <dimen name="dp_31">31dp</dimen>
     <dimen name="dp_32">32dp</dimen>
+    <dimen name="margin_vertical">8dp</dimen>
+    <dimen name="margin_dialog">24dp</dimen>
+    <dimen name="margin_icon">8dp</dimen>
+    <dimen name="margin_start_dialog_text_bullets">16dp</dimen>
+    <dimen name="material_margin_bottom_dialogs_title">20dp</dimen>
+    <dimen name="margin_bottom_dialogs_title">@dimen/material_margin_bottom_dialogs_title</dimen>
+    <dimen name="text_size_upgrade_step">16sp</dimen>
+    <dimen name="height_progressbar">5dp</dimen>
+    <dimen name="progressbar_size">100dp</dimen>
 </resources>

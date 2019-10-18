@@ -595,7 +595,7 @@ public class BleManager {
                       boolean split,
                       BleWriteCallback callback) {
 
-        write(bleDevice, uuid_service, uuid_write, data, split, true, 400, callback);
+        write(bleDevice, uuid_service, uuid_write, data, split, true, 1000, callback);
     }
 
     /**

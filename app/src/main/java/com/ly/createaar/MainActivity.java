@@ -2,6 +2,8 @@ package com.ly.createaar;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
+import android.bluetooth.BluetoothGatt;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -42,6 +44,7 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
@@ -50,7 +53,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
 
     private VirtualLeashHelper bluetoothHelper;
     private BluetoothHelper bluetoothHelper1;
@@ -95,6 +98,17 @@ public class MainActivity extends AppCompatActivity {
         otaUpgradeService.setNotifyCallback(new NotifyCallback() {
             @Override
             public void charactoristicChange(int action,byte[] backBytes) {
+
+            }
+
+            @Override
+            public void deviceReconn() {
+                //重新连接
+                progressDialogWidget.getCurrentPacket().setText("连接成功");
+                progressDialogWidget.showCloseBtnWithText("继续");
+                progressDialogWidget.getCloseBtn().setOnClickListener(v -> {
+                    otaUpgradeService.getHandler().sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_RECONNECT_SEND, 3000);
+                });
 
             }
 
@@ -193,6 +207,7 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void checkOutTime() {
+                loadingWidget.hide();
                 toast("data loading fail,try again");
             }
 
@@ -233,10 +248,11 @@ public class MainActivity extends AppCompatActivity {
         textView = findViewById(R.id.write_tv);
         TextView txtTagProgress = progressDialogWidget.getProgressNumTv();
         decimalFormat = new DecimalFormat("#.00");
-        combinePacket();
+//        combinePacket();
         checkLocation();
     }
 
+    // todo
     private boolean checkLocation() {
         if (Build.VERSION.SDK_INT >= 23) {
             int permission = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION);
@@ -257,16 +273,31 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    // todo
     private void toast(String msg) {
         Toast.makeText(this, "" + msg, Toast.LENGTH_LONG).show();
     }
 
-
+    // todo
     public void clear(View view) {
         editText.setText("");
     }
 
+    // --------------------------------- 2019/10/18 ---------------------------------==
+//    // toat
+//    public void startUpgrade(File file) {
+//        //设置数据包直接的时间间隔,降低数据包丢失的可能性;CONNECTION_PRIORITY_HIGH:  30-40ms
+//        super.getBluetoothGatt().requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
+//        mGaiaManager.startUpgrade(file);
+//        mProgressQueue.clear();
+//        mTransferStartTime = 0;
+//    }
+//
+//    // toat
+//// --------------------------------- 2019/10/18 ---------------------------------==
 
+
+    // todo
     private byte[] combinePacket() {
         //合并后的字节数组
         byte[] lastBytes = null;
@@ -293,12 +324,14 @@ public class MainActivity extends AppCompatActivity {
         return lastBytes;
     }
 
+    // todo
     public void write(View view) {
         loadingWidget.setLoadingText("device connecting...");
         loadingWidget.show();
         Intent intent = new Intent(this, OTAUpgradeService.class);
         intent.setAction(ActionUtils.ACTION_DEVICE_SCAN);
-        intent.putExtra("mac_address", "01:02:04:05:A6:14");
+        intent.putExtra("mac_address", "01:02:04:05:06:09");
+//        intent.putExtra("mac_address", "01:02:04:05:A6:14");
         intent.putExtra("dataByte", initialTotalBytes);
         bindService(intent,connection, Context.BIND_AUTO_CREATE);
     }
@@ -328,15 +361,23 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    // todo
     private void disconnect(BleDevice device) {
         this.bleDevice = null;
         loadingWidget.hide();
+        progressDialogWidget.setProgressNumTvText("");
+        progressDialogWidget.getCurrentPacket().setText("设备已断开");
+        progressDialogWidget.showCloseBtnWithText("重试");
+        progressDialogWidget.getCloseBtn().setOnClickListener((v -> {
+            otaUpgradeService.getHandler().sendEmptyMessageDelayed(ActionUtils.ACTION_DEVICE_RECONNECT,300);
+        }));
         toast("设备已断开");
         SharePreferenceUtils.setValue(this, "data-frame", cPacket + "," + currentFrame + "," + totalFrame + "," + currentBin);
     }
-
+    // todo
     public void scanFail() {
         toast("未发现蓝牙设备,请重启设备再试");
+        loadingWidget.hide();
     }
 
 
@@ -352,6 +393,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void connectSuccess(BleDevice bleDevice) {
         this.bleDevice = bleDevice;
+        Log.e("connect-success---",bleDevice.getMac());
         scanAndConnTv.setText("扫描与连接(已连接)");
     }
 
