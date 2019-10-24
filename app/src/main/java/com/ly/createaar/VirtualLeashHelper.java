@@ -73,25 +73,24 @@ public class VirtualLeashHelper {
     }
 
     /**
-     *
      * @param isFuzzy 是否模糊搜索,基本都是true
      * @param address 蓝牙mac地址
-     * @param name 蓝牙名称
-     *             注意:
-     *             当通过名称搜索和连接时,address可以为null
-     *             当通过address搜索和连接时,name不能为null,否则会报空指针异常,可以是""
+     * @param name    蓝牙名称
+     *                注意:
+     *                当通过名称搜索和连接时,address可以为null
+     *                当通过address搜索和连接时,name不能为null,否则会报空指针异常,可以是""
      */
 
     public void openVirtualLeash(boolean isFuzzy, String address, String name) {
         bluetoothHelper.setCharacteristicChangeListener(characteristicChangeListener);
-        bluetoothHelper.scanAndConnect(isFuzzy, address, name,bleHandleListener);
+        bluetoothHelper.scanAndConnect(isFuzzy, address, name, bleHandleListener);
     }
 
-    private BluetoothHelper.CharacteristicChangeListener characteristicChangeListener= new BluetoothHelper.CharacteristicChangeListener() {
+    private BluetoothHelper.CharacteristicChangeListener characteristicChangeListener = new BluetoothHelper.CharacteristicChangeListener() {
         @Override
         public void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            if (onCharacteristicChangeListener!=null){
-                onCharacteristicChangeListener.onCharacteristicChange(gatt,characteristic);
+            if (onCharacteristicChangeListener != null) {
+                onCharacteristicChangeListener.onCharacteristicChange(gatt, characteristic);
             }
         }
     };
@@ -102,11 +101,6 @@ public class VirtualLeashHelper {
             if (success && scanStartListener != null) {
                 scanStartListener.scanStart();
             }
-        }
-
-        @Override
-        public void onScanning() {
-
         }
 
         @Override
@@ -128,7 +122,7 @@ public class VirtualLeashHelper {
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
             connDeviceMap.put(bleDevice.getName(), bleDevice);
             connDeviceRssiMap.put(bleDevice.getName(), bleDevice.getRssi());
-//            readRssi();
+            //            readRssi();
             if (connectSuccessListener != null) {
                 connectSuccessListener.connectSuccess(bleDevice, gatt);
             }
@@ -139,9 +133,9 @@ public class VirtualLeashHelper {
                 }
                 for (Map.Entry<String, BleDevice> entry : disConnDeviceMap.entrySet()) {
                     //测试使用name,因为mac地址一直改变
-//                if (entry.getKey().equals(bleDevice.getMac())){
-//                    disConnDeviceMap.remove(entry.getKey());
-//                }
+                    //                if (entry.getKey().equals(bleDevice.getMac())){
+                    //                    disConnDeviceMap.remove(entry.getKey());
+                    //                }
                     if (entry.getKey().equals(bleDevice.getName())) {
                         disConnDeviceMap.remove(entry.getKey());
                     }
@@ -173,31 +167,36 @@ public class VirtualLeashHelper {
         }
 
         @Override
-        public void onDisconnect(BleDevice device, BluetoothGatt gatt) {
+        public void onDisconnect(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt) {
             Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi());
             reconnSate = true;
             //            disConnDeviceMap.put(device.getMac(), device);
             disConnDeviceMap.put(device.getName(), device); //测试
-            bluetoothHelper.scanAndConnect(false, null, device.getName(),bleHandleListener);
+            bluetoothHelper.scanAndConnect(false, null, device.getName(), bleHandleListener);
             ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
             handler.sendEmptyMessageDelayed(0, bleManager.getReConnectCount() * bleManager.getReConnectInterval());
             for (Map.Entry<String, BleDevice> entry : connDeviceMap.entrySet()) {
                 //测试使用name,因为mac地址一直改变
-//                if (entry.getKey().equals(bleDevice.getMac())){
-//                    disConnDeviceMap.remove(entry.getKey());
-//                }
+                //                if (entry.getKey().equals(bleDevice.getMac())){
+                //                    disConnDeviceMap.remove(entry.getKey());
+                //                }
                 if (entry.getKey().equals(device.getName())) {
                     connDeviceMap.remove(entry.getKey());
                 }
             }
 
-            if (disconnectListener!=null){
-                disconnectListener.disconnect(device,gatt);
+            if (disconnectListener != null) {
+                disconnectListener.disconnect(device, gatt);
             }
 
             if (!bleManager.isBlueEnable()) {
                 deviceSelfDisableListener.deviceSelfDisable();
             }
+
+        }
+
+        @Override
+        public void onBleDisable() {
 
         }
     };
@@ -213,7 +212,7 @@ public class VirtualLeashHelper {
                         bluetoothHelper.readRssi(device.getValue(), new BluetoothHelper.RemoteRssiListener() {
                             @Override
                             public void onRemoteRssi(int rssi) {
-                                Log.e("rssi----", rssi + "/"+getDistance(rssi));
+                                Log.e("rssi----", rssi + "/" + getDistance(rssi));
                                 connDeviceRssiMap.put(device.getKey(), rssi);
                             }
 
@@ -248,7 +247,7 @@ public class VirtualLeashHelper {
 
     private OnCharacteristicChangeListener onCharacteristicChangeListener;
 
-    public interface OnCharacteristicChangeListener{
+    public interface OnCharacteristicChangeListener {
         void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic);
     }
 

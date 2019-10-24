@@ -21,7 +21,7 @@ import com.ly.bluetoothhelper.callbacks.DataCallback;
 import com.ly.bluetoothhelper.callbacks.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.ProgressCallback;
 import com.ly.bluetoothhelper.callbacks.WriteCallback;
-import com.ly.bluetoothhelper.helper.BLEHelper;
+import com.ly.bluetoothhelper.helper.BleConnectHelper;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
 import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.DataPacketUtils;
@@ -49,8 +49,8 @@ import java.util.Objects;
  */
 public class OTAUpgradeService extends Service {
 
-    private BLEHelper bluetoothHelper; //蓝牙操作辅助类
-    private BluetoothHelper bluetoothHelper1; //蓝牙操作类
+    private BleConnectHelper bleConnectHelper; //蓝牙操作辅助类
+    private BluetoothHelper bluetoothBaseHelper; //蓝牙操作类
     private BleDevice bleDevice;
     private byte[] initialTotalBytes;
     private ProgressCallback progressCallback;
@@ -75,8 +75,9 @@ public class OTAUpgradeService extends Service {
     private List<String> fileNameList = new ArrayList<>();
     private String macAddress;
     private boolean isReTransTest = true;//重传机制测试版
-    private int cp=0;
-    private int tp=0;
+    private int cp = 0;
+    private int tp = 0;
+
     @Subscribe(threadMode = ThreadMode.MAIN)
     public void getBinData(TransfirmDataBean dataBean) {
         if (dataBean != null) {
@@ -95,7 +96,7 @@ public class OTAUpgradeService extends Service {
             super.handleMessage(msg);
             switch (msg.what) {
                 case ActionUtils.ACTION_OTA_NOTIFY:
-                    CURRENT_ACTION=ActionUtils.ACTION_OTA_NOTIFY;
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_NOTIFY;
                     if (!isReconnect) {
                         if (dataCallback != null) {
                             dataCallback.binChecking();
@@ -105,7 +106,7 @@ public class OTAUpgradeService extends Service {
                     break;
 
                 case ActionUtils.ACTION_OTA_ORDER_I: //发送ota升级命令(含校验bin的合法性)
-                    Log.e("currentBin----",currentBin+"");
+                    Log.e("currentBin----", currentBin + "");
                     byte[] oadOrder = OrderSetUtils.ORDER_OAD;
                     byte[] binCountBytes = new byte[]{(byte) fileNameList.size(), (byte) currentBin};
                     byte[] headByte = TransformUtils.subBytes(initialTotalBytes, 0, 5);
@@ -121,12 +122,12 @@ public class OTAUpgradeService extends Service {
                     break;
 
                 case ActionUtils.ACTION_OTA_NEXT_BIN:
-                    currentFrame=1;
-                    totalFrame=0;
-                    CURRENT_ACTION=ActionUtils.ACTION_OTA_NEXT_BIN;
-                    isReconnect=false;
+                    currentFrame = 1;
+                    totalFrame = 0;
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_NEXT_BIN;
+                    isReconnect = false;
                     openNotify();
-//                    getDataBytes(currentBin);
+                    //                    getDataBytes(currentBin);
                     break;
 
                 case ActionUtils.ACTION_OTA_DATA_DATA_I: //发送ota数据帧
@@ -184,7 +185,7 @@ public class OTAUpgradeService extends Service {
                         }
                     }
                     break;
-//
+                //
                 case ActionUtils.ACTION_OTA_VALIFY_OUTTIME:
                     if (!isBin) {
                         toast("校验超时");
@@ -203,7 +204,7 @@ public class OTAUpgradeService extends Service {
                         int ctf = Integer.valueOf(cacheInfos[1]);//总帧
                         int cf = Integer.valueOf(cacheInfos[2]);//当前帧
                         int cp = Integer.valueOf(cacheInfos[3]);//当前包
-                        Log.e("re_send----",cb+"/"+cf+"/"+cp);
+                        Log.e("re_send----", cb + "/" + cf + "/" + cp);
                         getDataBytes(cb);
                         currentFrame = cf;
                         currentPacket = reCurrentPacket = cp;
@@ -214,10 +215,10 @@ public class OTAUpgradeService extends Service {
                         }
                     }
                     break;
-                    case ActionUtils.ACTION_DEVICE_RECONNECT:
-                        isReconnect=true;
-                        bluetoothHelper.openVirtualLeash(true,macAddress,"");
-                        break;
+                case ActionUtils.ACTION_DEVICE_RECONNECT:
+                    isReconnect = true;
+                    bleConnectHelper.openVirtualLeash(true, macAddress, "");
+                    break;
             }
         }
     };
@@ -252,10 +253,10 @@ public class OTAUpgradeService extends Service {
 
     private void writeBytes(byte[] datas) {
 
-        bluetoothHelper1.write(bleDevice, datas, new BluetoothHelper.WriteListener() {
+        bluetoothBaseHelper.write(bleDevice, datas, new BluetoothHelper.WriteListener() {
             @Override
             public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                Log.e("justWrite----",TransformUtils.bytesToHexString(justWrite));
+                Log.e("justWrite----", TransformUtils.bytesToHexString(justWrite));
                 if (writeCallback != null) {
                     writeCallback.writeSuccess(CURRENT_ACTION, current, total, justWrite);
                 }
@@ -276,12 +277,12 @@ public class OTAUpgradeService extends Service {
                     if (progressCallback != null) {
                         progressCallback.setProgress(percent, current, currentFrame, currentBin);
                     }
-                    cp=current;
-                    tp=total;
+                    cp = current;
+                    tp = total;
                     Log.e("info---", currentFrame + "/" + totalFrame + "/" + current + "/" + total);
 
-                }else if (CURRENT_ACTION==ActionUtils.ACTION_OTA_DATA_LOSE_I){
-                    Log.e("loseWrite----",TransformUtils.bytesToHexString(justWrite));
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_LOSE_I) {
+                    Log.e("loseWrite----", TransformUtils.bytesToHexString(justWrite));
                 }
             }
 
@@ -303,12 +304,12 @@ public class OTAUpgradeService extends Service {
             return;
         }
 
-        bluetoothHelper1.setNotify(bleDevice, new BluetoothHelper.BleNotifyListener() {
+        bluetoothBaseHelper.setNotify(bleDevice, new BluetoothHelper.BleNotifyListener() {
             @Override
             public void onNotifySuccess() {
                 openNotifySuccess = true;
                 if (isReconnect) {
-                    if (notifyCallback!=null){
+                    if (notifyCallback != null) {
                         notifyCallback.deviceReconn();
                     }
 
@@ -356,7 +357,7 @@ public class OTAUpgradeService extends Service {
                             isBin = true;
                             toast("校验成功");
                             CURRENT_ACTION = ActionUtils.ACTION_OTA_DATA_HEAD_I;
-//                            loadingWidget.hide();
+                            //                            loadingWidget.hide();
                             handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 2000);
                         }
                     } else if (data[data.length - 3] == (byte) 0x03 && data[data.length - 4] == (byte) 0x20) { //ota数据包
@@ -377,9 +378,9 @@ public class OTAUpgradeService extends Service {
 
 
     private void initHelper() {
-        bluetoothHelper = BLEHelper.getInstance().init(getApplication(),0);
-        bluetoothHelper1 = new BluetoothHelper(getApplication(),0);
-        bluetoothHelper1.initUuid(null,
+        bleConnectHelper = BleConnectHelper.getInstance().getInstance().init(getApplication(), 0);
+        bluetoothBaseHelper = new BluetoothHelper(getApplication(), 0);
+        bluetoothBaseHelper.initUuid(null,
                 "00005500-d102-11e1-9b23-00025b00a5a5",
                 "00005501-d102-11e1-9b23-00025b00a5a5",
                 "00005501-d102-11e1-9b23-00025b00a5a5",
@@ -439,11 +440,11 @@ public class OTAUpgradeService extends Service {
         try {
             AssetManager assetManager = getAssets();
             String[] assetsList = assetManager.list("");
-            for (int i=assetsList.length-1;i>=0;i--) {
-                if (assetsList[i].startsWith("dict")||assetsList[i].startsWith("clade")) {
+            for (int i = assetsList.length - 1; i >= 0; i--) {
+                if (assetsList[i].startsWith("dict") || assetsList[i].startsWith("clade")) {
                     fileNameList.add(assetsList[i]);
                 }
-                Log.e("name---", assetsList[i]+"/"+fileNameList.size());
+                Log.e("name---", assetsList[i] + "/" + fileNameList.size());
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -473,9 +474,9 @@ public class OTAUpgradeService extends Service {
                 }
                 initialTotalBytes = TransformUtils.streamToByte(inputStream);
                 totalFrame = (initialTotalBytes.length / 1024) % 4 != 0 ? ((initialTotalBytes.length / 1024 / 4) + 1) : (initialTotalBytes.length / 1024 / 4);
-//                if (CURRENT_ACTION==ActionUtils.ACTION_OTA_NEXT_BIN){
-//                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 1000);
-//                }
+                //                if (CURRENT_ACTION==ActionUtils.ACTION_OTA_NEXT_BIN){
+                //                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 1000);
+                //                }
             } catch (IOException e) {
                 Log.e("ble file data----", "file data can not found");
             }
@@ -488,16 +489,17 @@ public class OTAUpgradeService extends Service {
         initData();
         String action = intent.getAction();
 
-//        byte[] bytes = intent.getByteArrayExtra("dataByte");
+        //        byte[] bytes = intent.getByteArrayExtra("dataByte");
         if (Objects.equals(action, ActionUtils.ACTION_DEVICE_SCAN)) {
             //设备mac地址
-            if (bleDevice!=null){
+            if (bleDevice != null) {
                 handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 3000);
-            }else {
+            } else {
                 macAddress = intent.getStringExtra("mac_address");
-                bluetoothHelper.openVirtualLeash(true, macAddress, "");
+                bleConnectHelper.openVirtualLeash(true, macAddress, "");
             }
-            bluetoothHelper.setConnectSuccessListener((bleDevice, gatt) -> {
+
+            bleConnectHelper.setConnectSuccessListener((bleDevice, gatt) -> {
                 if (bleDevice != null) {
                     this.bleDevice = bleDevice;
                     handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 3000);
@@ -505,13 +507,13 @@ public class OTAUpgradeService extends Service {
                     EventBus.getDefault().post(msgBean);
                 }
             });
-            bluetoothHelper.setConnectFailListener((bleDevice, description) -> {
+            bleConnectHelper.setConnectFailListener((bleDevice, description) -> {
                 if (bleDevice != null) {
                     MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_FAIL_S, bleDevice);
                     EventBus.getDefault().post(msgBean);
                 }
             });
-            bluetoothHelper.setScanFinishListener((bleDevice) -> {
+            bleConnectHelper.setScanFinishListener((bleDevice) -> {
                 if (bleDevice != null) {
                     MsgBean msgBean = new MsgBean(ActionUtils.ACTION_SCAN_SUCCESS_S, bleDevice);
                     EventBus.getDefault().post(msgBean);
@@ -520,30 +522,32 @@ public class OTAUpgradeService extends Service {
                     EventBus.getDefault().post(msgBean);
                 }
             });
-            bluetoothHelper.setDisconnectListener((bleDevice, bluetoothGatt) -> {
-                //断开连接,记录数据传输情况
-                isReconnect = true;
-                if (currentFrame < totalFrame) {
-                    Log.e("cache---", currentBin + "/" + totalFrame + "/" + currentFrame + "/" + currentPacket);
-                    String spCache = currentBin + "," + totalFrame + "," + currentFrame + "," + currentPacket;
-                    SharePreferenceUtils.setValue(this, "data-" + macAddress, spCache); //记录当前设备传输情况
+            bleConnectHelper.setDisconnectListener((isActiveDisConnect, bleDevice1, gatt) -> {
+                if (!isActiveDisConnect) {
+                    //断开连接,记录数据传输情况
+                    isReconnect = true;
+                    if (currentFrame < totalFrame) {
+                        Log.e("cache---", currentBin + "/" + totalFrame + "/" + currentFrame + "/" + currentPacket);
+                        String spCache = currentBin + "," + totalFrame + "," + currentFrame + "," + currentPacket;
+                        SharePreferenceUtils.setValue(this, "data-" + macAddress, spCache); //记录当前设备传输情况
+                    }
+                    MsgBean msgBean = new MsgBean(ActionUtils.ACTION_DISCONNECT_S, bleDevice);
+                    EventBus.getDefault().post(msgBean);
                 }
-                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_DISCONNECT_S, bleDevice);
-                EventBus.getDefault().post(msgBean);
             });
-            bluetoothHelper.setReconnectSuccessListener((bleDevice -> {
+            bleConnectHelper.setReconnectSuccessListener((bleDevice -> {
                 //若重新连接上,尚未确定是继续传输还是???,暂定为关闭service,若下次启动,将从断位开始
-//                stopSelf();
+                // stopSelf();
                 MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, bleDevice);
                 EventBus.getDefault().post(msgBean);
             }));
             //监听characteristic变化
-            bluetoothHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
+            bleConnectHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
                 Log.e("crtChange---", TransformUtils.bytes2String(characteristic.getValue()));
             }));
         } else if (Objects.equals(action, "OTA_START")) {
             //处理bin文件,转换成byte数组
-//            byte[] packetsByte = combinePacket();
+            //byte[] packetsByte = combinePacket();
 
         }
     }

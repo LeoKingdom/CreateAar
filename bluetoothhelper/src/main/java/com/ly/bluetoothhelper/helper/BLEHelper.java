@@ -4,7 +4,6 @@ import android.app.Application;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.os.CountDownTimer;
-import android.os.Message;
 import android.util.Log;
 
 import com.clj.fastble.BleManager;
@@ -61,11 +60,10 @@ public class BLEHelper {
 
     private BLEHelper() {
 
-
     }
 
-    public BLEHelper init(Application application,int reconnectCount) {
-        bluetoothHelper = new BluetoothHelper(application,reconnectCount);
+    public BLEHelper init(Application application, int reconnectCount) {
+        bluetoothHelper = new BluetoothHelper(application, reconnectCount);
         bleManager = bluetoothHelper.getBleManager();
         return this;
     }
@@ -119,11 +117,6 @@ public class BLEHelper {
         }
 
         @Override
-        public void onScanning() {
-
-        }
-
-        @Override
         public void onScanFinished(BleDevice bleDevice) {
             if (scanFinishListener != null) {
                 scanFinishListener.scanFinish(bleDevice);
@@ -153,18 +146,18 @@ public class BLEHelper {
                 }
                 for (Map.Entry<String, BleDevice> entry : disConnDeviceMap.entrySet()) {
                     //测试使用name,因为mac地址一直改变
-//                if (entry.getKey().equals(bleDevice.getMac())){
-//                    disConnDeviceMap.remove(entry.getKey());
-//                }
+                    // if (entry.getKey().equals(bleDevice.getMac())){
+                    //   disConnDeviceMap.remove(entry.getKey());
+                    //  }
                     if (entry.getKey().equals(bleDevice.getName())) {
                         disConnDeviceMap.remove(entry.getKey());
                     }
                 }
-//                ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
-//                Message message = handler.obtainMessage();
-//                message.what = 1;
-//                message.obj = bleDevice.getName();
-//                handler.sendMessage(message);
+                //                ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
+                //                Message message = handler.obtainMessage();
+                //                message.what = 1;
+                //                message.obj = bleDevice.getName();
+                //                handler.sendMessage(message);
             }
         }
 
@@ -187,21 +180,21 @@ public class BLEHelper {
         }
 
         @Override
-        public void onDisconnect(BleDevice device, BluetoothGatt gatt) {
+        public void onDisconnect(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt) {
             Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi());
             if (setReconnect) {
                 reconnSate = true;
             }
-            //            disConnDeviceMap.put(device.getMac(), device);
+            // disConnDeviceMap.put(device.getMac(), device);
             disConnDeviceMap.put(device.getName(), device); //测试
             bluetoothHelper.scanAndConnect(false, null, device.getName(), bleHandleListener);
-//            ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
-//            handler.sendEmptyMessageDelayed(0, bleManager.getReConnectCount() * bleManager.getReConnectInterval());
+            //  ReconnectHelper.ReconnHandler handler = ReconnectHelper.getInstance().getReConnHandler();
+            // handler.sendEmptyMessageDelayed(0, bleManager.getReConnectCount() * bleManager.getReConnectInterval());
             for (Map.Entry<String, BleDevice> entry : connDeviceMap.entrySet()) {
                 //测试使用name,因为mac地址一直改变
-//                if (entry.getKey().equals(bleDevice.getMac())){
-//                    disConnDeviceMap.remove(entry.getKey());
-//                }
+                //  if (entry.getKey().equals(bleDevice.getMac())){
+                //     disConnDeviceMap.remove(entry.getKey());
+                //  }
                 if (entry.getKey().equals(device.getName())) {
                     connDeviceMap.remove(entry.getKey());
                 }
@@ -214,7 +207,11 @@ public class BLEHelper {
             if (!bleManager.isBlueEnable()) {
                 deviceSelfDisableListener.deviceSelfDisable();
             }
+        }
 
+        @Override
+        public void onBleDisable() {
+            // TODO: 2019/10/24  ZQ-->蓝牙断开了
         }
     };
 
