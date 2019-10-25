@@ -13,12 +13,30 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.content.res.AssetManager;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
-import android.support.annotation.IntDef;
+import android.os.Message;
 import android.util.Log;
+import android.widget.Toast;
 
+import com.clj.fastble.data.BleDevice;
+import com.clj.fastble.exception.BleException;
+import com.ly.bluetoothhelper.beans.MsgBean;
+import com.ly.bluetoothhelper.beans.TransfirmDataBean;
+import com.ly.bluetoothhelper.callbacks.DataCallback;
+import com.ly.bluetoothhelper.callbacks.NotifyCallback;
+import com.ly.bluetoothhelper.callbacks.ProgressCallback;
+import com.ly.bluetoothhelper.callbacks.WriteCallback;
+import com.ly.bluetoothhelper.helper.BLEHelper;
+import com.ly.bluetoothhelper.helper.BluetoothHelper;
+import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
+import com.ly.bluetoothhelper.oat.annotation.Enums;
+import com.ly.bluetoothhelper.oat.annotation.MessageType;
+import com.ly.bluetoothhelper.oat.annotation.State;
+import com.ly.bluetoothhelper.oat.annotation.Support;
 import com.ly.bluetoothhelper.oat.ble.BLEUtils;
 import com.ly.bluetoothhelper.oat.ble.Characteristics;
 import com.ly.bluetoothhelper.oat.ble.Services;
@@ -29,16 +47,26 @@ import com.ly.bluetoothhelper.oat.upgrade.UpgradeError;
 import com.ly.bluetoothhelper.oat.upgrade.UpgradeManager;
 import com.ly.bluetoothhelper.oat.upgrade.UploadProgress;
 import com.ly.bluetoothhelper.oat.upgrade.codes.ResumePoints;
+import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.Consts;
+import com.ly.bluetoothhelper.utils.DataPacketUtils;
+import com.ly.bluetoothhelper.utils.OrderSetUtils;
+import com.ly.bluetoothhelper.utils.SharePreferenceUtils;
+import com.ly.bluetoothhelper.utils.TransformUtils;
 import com.ly.bluetoothhelper.utils.Utils;
 
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
+import org.greenrobot.eventbus.ThreadMode;
+
 import java.io.File;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 
@@ -52,9 +80,40 @@ import java.util.UUID;
 public class OtauBleService extends BLEService implements GaiaUpgradeManager.GaiaManagerListener,
         BondStateReceiver.BondStateListener, RWCPManager.RWCPListener {
 
+    // --------------------------add by ly--------------------------
+    private BLEHelper bluetoothHelper; //蓝牙操作辅助类
+    private BluetoothHelper bluetoothHelper1; //蓝牙操作类
+    private BleDevice bleDevice;
+    private byte[] initialTotalBytes;
+    private ProgressCallback progressCallback;
+    private NotifyCallback notifyCallback;
+    private WriteCallback writeCallback;
+    private DataCallback dataCallback;
+    private int totalFrame; //总帧数
+    int currentFrame = 1; //当前帧
+    private int currentBin = 1; //当前bin文件表示
+    private int currentPacket = 0;//当前bin当前帧当前包
+    private int reCurrentPacket = 0;//重传的当前bin当前帧当前包
+    private String filePath;//下载
+    private int CURRENT_ACTION;
+    private Thread thread;
+    private int currentTotalPacket;
+    private byte[] loseList;
+    private byte[] currentFrameBytes;
+    private boolean isBin = false;
+    private boolean isReconnect = false;
+    private List<String> fileNameList = new ArrayList<>();
+    private String macAddress;
+    private boolean isReTransTest = true;//重传机制测试版
+    private int cp = 0;
+    private int tp = 0;
+    private boolean mAuto = true;
+    private int everyFrameTotalPacket = 0;
+    //------------------------end---------------------------
 
     // ====== CONSTS FIELDS ========================================================================
 
+    //-------------------------------------------GAIA各种UUID START----------------------------------------------------------
     /**
      * The UUID of the GAIA service.
      */
@@ -74,6 +133,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      */
     private static final UUID GAIA_CHARACTERISTIC_DATA_ENDPOINT_UUID =
             Characteristics.getCharacteristicUUID(Characteristics.CHARACTERISTIC_CSR_GAIA_DATA_ENDPOINT);
+
+    //-----------------------------------------------------END-----------------------------------------------------------
     /**
      * To know if we are using the application in the debug mode.
      */
@@ -102,7 +163,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      * To manage the GAIA packets which has been received from the device and which will be send to the device.
      * 升级管理类,传入GaiaManagerListener接口,实现的方法为
      * onVMUpgradeDisconnected()  断开升级的方法监听
-     * onResumePointChanged(@ResumePoints.Enum int point);  当升级过程中的步骤有进展时，将调用此方法。
+     * onResumePointChanged(@ResumePoints.Enums int point);  当升级过程中的步骤有进展时，将调用此方法。
      * onUpgradeError(UpgradeError error); 升级过程中出现异常
      * onUploadProgress(UploadProgress progress); 升级过程
      * sendGAIAPacket(byte[] packet, boolean isTransferringData); 将GAIA数据包的字节传输到连接的设备方法。
@@ -120,11 +181,13 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     /**
      * To keep the information that the gaia protocol is supported by the connected device.
      */
-    private @Support int mIsGaiaSupported = Support.DO_NOT_KNOW;
+    private @Support
+    int mIsGaiaSupported = Support.DO_NOT_KNOW;
     /**
      * To keep the information that the upgrade protocol is supported by the connected device.
      */
-    private @Support int mIsUpgradeSupported = Support.DO_NOT_KNOW;
+    private @Support
+    int mIsUpgradeSupported = Support.DO_NOT_KNOW;
     /**
      * To know if RWCP mode is supported by the device.
      * RWCP mode is known as supported if the DATA_ENDPOINT characteristic has the following properties: READ,
@@ -159,173 +222,13 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     private long mTransferStartTime = 0;
 
 
-    // ====== ENUM =================================================================================
-
-    /**
-     * <p>All types of messages which can be sent to an app linked to this service.</p>
-     */
-    @IntDef(flag = true, value = {MessageType.CONNECTION_STATE_HAS_CHANGED, MessageType.GAIA_SUPPORT,
-            MessageType.UPGRADE_FINISHED, MessageType.UPGRADE_REQUEST_CONFIRMATION, MessageType.UPGRADE_SUPPORT,
-            MessageType.UPGRADE_STEP_HAS_CHANGED, MessageType.UPGRADE_ERROR, MessageType.UPGRADE_UPLOAD_PROGRESS,
-            MessageType.DEVICE_BOND_STATE_HAS_CHANGED, MessageType.RWCP_ENABLED, MessageType.TRANSFER_FAILED,
-            MessageType.RWCP_SUPPORTED, MessageType.MTU_SUPPORTED, MessageType.MTU_UPDATED })
-    @Retention(RetentionPolicy.SOURCE)
-    @SuppressLint("ShiftFlags") // values are more readable this way
-    public @interface MessageType {
-        /**
-         * <p>To inform that the connection state with the selected device has changed.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>The connection state of the device as: {@link BLEService.State#CONNECTED
-         *     CONNECTED}, {@link BLEService.State#CONNECTING CONNECTING},
-         *     {@link BLEService.State#DISCONNECTING DISCONNECTING} or
-         *     {@link BLEService.State#DISCONNECTED DISCONNECTED}. This information is contained
-         *     in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int CONNECTION_STATE_HAS_CHANGED = 0;
-        /**
-         * <p>To inform if the GAIA Service and required characteristics are supported by the device.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>The support of the feature as a value of {@link Support Support}.<br/>
-         *     This information is contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int GAIA_SUPPORT = 1;
-        /**
-         * <p>To inform if the GAIA commands for upgrading a Device are supported by the device.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>The support of the feature as a value of {@link Support Support}.<br/>
-         *     This information is contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int UPGRADE_SUPPORT = 2;
-        /**
-         * To inform that the upgrade process has successfully ended.
-         */
-        int UPGRADE_FINISHED = 3;
-        /**
-         * <p>To inform that the upgrade process needs he user to confirm the process to continue.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>{@link UpgradeManager.ConfirmationType ConfirmationType}
-         *     information contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int UPGRADE_REQUEST_CONFIRMATION = 4;
-        /**
-         * <p>To inform that a new step has been reached during the process.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>{@link ResumePoints ResumePoints}
-         *     information contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int UPGRADE_STEP_HAS_CHANGED = 5;
-        /**
-         * <p>To inform that an error occurs during the upgrade process.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>{@link UpgradeError UpgradeError}
-         *     information contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int UPGRADE_ERROR = 6;
-        /**
-         * <p>To inform on the progress of the file upload.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>{@link UploadProgress UploadProgress}
-         *     information contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int UPGRADE_UPLOAD_PROGRESS = 7;
-        /**
-         * <p>To inform that the device bond state has changed.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>the bond state value which can be one of the following:
-         *     {@link BluetoothDevice#BOND_BONDED BOND_BONDED}, {@link BluetoothDevice#BOND_BONDING BOND_BONDING} and
-         *     {@link BluetoothDevice#BOND_NONE BOND_NONE}.<br/>This information is contained in
-         *     <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int DEVICE_BOND_STATE_HAS_CHANGED = 8;
-        /**
-         * <p>To inform if RWCP mode is supported by the device.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>The support of the feature as a boolean: true if the feature is supported, false otherwise.
-         *     This information is contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int RWCP_SUPPORTED = 9;
-        /**
-         * <p>To inform if RWCP mode is enabled by the device.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>The support of the feature as a boolean: true if the feature is enabled, false otherwise.
-         *     This information is contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int RWCP_ENABLED = 10;
-        /**
-         * <p>To inform that the transfer of bytes during the transfer has failed.</p>
-         * <p>The upgrade is aborted.</p>
-         */
-        int TRANSFER_FAILED = 11;
-        /**
-         * <p>To inform if MTU size is supported by the device.</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>The support of the feature as a boolean: true if the feature is supported, false otherwise.
-         *     This information is contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int MTU_SUPPORTED = 12;
-        /**
-         * <p>To inform about the new MTU size which had been negotiated with the device..</p>
-         * <p>This type of {@link android.os.Message Message} also contains:</p>
-         * <ul>
-         *     <li>The value of the new size as an <code>int</code>.
-         *     This information is contained in <code>{@link android.os.Message#obj obj}</code>.</li>
-         * </ul>
-         */
-        int MTU_UPDATED = 13;
-    }
-
-    /**
-     * <p>All types of support the service can know for a the qualified element such as: a feature, a protocol, etc.</p>
-     */
-    @IntDef(flag = true, value = { Support.NOT_SUPPORTED, Support.SUPPORTED, Support.DO_NOT_KNOW })
-    @Retention(RetentionPolicy.SOURCE)
-    @SuppressLint("ShiftFlags") // values are more readable this way
-    public @interface Support {
-        /**
-         * <p>The element is not supported.</p>
-         */
-        int NOT_SUPPORTED = 0;
-        /**
-         * <p>The element us supported.</p>
-         */
-        int SUPPORTED = 1;
-        /**
-         * <p>The service does not know if the element is supported.</p>
-         */
-        int DO_NOT_KNOW = 2;
-    }
-
-
     // ====== PUBLIC METHODS =======================================================================
 
     /**
      * <p>Adds the given handler to the targets list for messages from this service.</p>
      * <p>This method is synchronized to avoid to a call on the list of listeners while modifying it.</p>
      *
-     * @param handler
-     *         The Handler for messages.
+     * @param handler The Handler for messages.
      */
     public synchronized void addHandler(Handler handler) {
         if (!mAppListeners.contains(handler)) {
@@ -337,8 +240,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      * <p>Removes the given handler from the targets list for messages from this service.</p>
      * <p>This method is synchronized to avoid to a call on the list of listeners while modifying it.</p>
      *
-     * @param handler
-     *         The Handler to remove.
+     * @param handler The Handler to remove.
      */
     public synchronized void removeHandler(Handler handler) {
         if (mAppListeners.contains(handler)) {
@@ -352,7 +254,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      *
      * @return The current known resume point of the upgrade.
      */
-    public @ResumePoints.Enum int getResumePoint() {
+    public @Enums
+    int getResumePoint() {
         return mGaiaManager.getResumePoint();
     }
 
@@ -373,12 +276,10 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     /**
      * <p>To inform the Upgrade process about a confirmation it is waiting for.</p>
      *
-     * @param type
-     *        The type of confirmation the Upgrade process is waiting for.
-     * @param confirmation
-     *        True if the Upgrade process should continue, false to abort it.
+     * @param type         The type of confirmation the Upgrade process is waiting for.
+     * @param confirmation True if the Upgrade process should continue, false to abort it.
      */
-    public void sendConfirmation(@UpgradeManager.ConfirmationType int type, boolean confirmation) {
+    public void sendConfirmation(@ConfirmationType int type, boolean confirmation) {
         mGaiaManager.sendConfirmation(type, confirmation);
     }
 
@@ -390,8 +291,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         if (super.getConnectionState() == State.DISCONNECTED) {
             resetDeviceInformation();
             sendMessageToListener(MessageType.CONNECTION_STATE_HAS_CHANGED, State.DISCONNECTED);
-        }
-        else {
+        } else {
             unregisterNotifications();
             disconnectFromDevice();
         }
@@ -409,47 +309,54 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     /**
      * <p>To know if the GAIA protocol is supported by the connected device.</p>
      * <p>If there is no device connected or if the service does not know yet if a connected device supports that
-     * protocol, this method returns {@link Support#DO_NOT_KNOW DO_NOT_KNOW}.</p>
+     * protocol, this method returns {@link com.ly.bluetoothhelper.oat.annotation.Support Sopport#DO_NOT_KNOW DO_NOT_KNOW}.</p>
      *
-     * @return One of the values of the {@link Support Support} enumeration.
+     * @return One of the values of the {@link com.ly.bluetoothhelper.oat.annotation.Support Support} enumeration.
      */
-    public @Support int isGaiaSupported () {
+    public @Support
+    int isGaiaSupported() {
         return mIsGaiaSupported;
     }
 
     /**
      * <p>To know if the Upgrade protocol is supported by the connected device.</p>
      * <p>If there is no device connected or if the service does not know yet if a connected device supports that
-     * protocol, this method returns {@link Support#DO_NOT_KNOW DO_NOT_KNOW.</p>
+     * protocol, this method returns {@link com.ly.bluetoothhelper.oat.annotation.Support #DO_NOT_KNOW DO_NOT_KNOW.</p>
      *
-     * @return One of the values of the {@link Support Support} enumeration.
+     * @return One of the values of the {@link com.ly.bluetoothhelper.oat.annotation.Support Support} enumeration.
      */
-    public @Support int isUpgradeSupported () {
+    public @Support
+    int isUpgradeSupported() {
         return mIsUpgradeSupported;
     }
 
     /**
      * <p>To start the Upgrade process with the given file.</p>
      *
-     * @param file
-     *        The file to use to upgrade the Device.
+     * @param file The file to use to upgrade the Device.
      */
     @SuppressLint("NewApi")
     public void startUpgrade(File file) {
         //设置数据包直接的时间间隔,降低数据包丢失的可能性;CONNECTION_PRIORITY_HIGH:  30-40ms
-        super.getBluetoothGatt().requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
-        mGaiaManager.startUpgrade(file);
-        mProgressQueue.clear();
-        mTransferStartTime = 0;
+        if (file != null) {
+            super.getBluetoothGatt().requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_HIGH);
+            mGaiaManager.startUpgrade(file);
+            mProgressQueue.clear();
+            mTransferStartTime = 0;
+        } else {
+            if (bleDevice != null) {
+                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 1000);
+            }
+        }
     }
 
     /**
      * <p>To get the bond state of the selected device.</p>
      *
      * @return Any of the bond states used by the {@link BluetoothDevice BluetoothDevice} class:
-     *         {@link BluetoothDevice#BOND_BONDED BOND_BONDED}, {@link BluetoothDevice#BOND_BONDING BOND_BONDING} or
-     *         {@link BluetoothDevice#BOND_NONE BOND_NONE}. If there is no device defined for this service, this method
-     *         returns {@link BluetoothDevice#BOND_NONE BOND_NONE}.
+     * {@link BluetoothDevice#BOND_BONDED BOND_BONDED}, {@link BluetoothDevice#BOND_BONDING BOND_BONDING} or
+     * {@link BluetoothDevice#BOND_NONE BOND_NONE}. If there is no device defined for this service, this method
+     * returns {@link BluetoothDevice#BOND_NONE BOND_NONE}.
      */
     @SuppressLint("MissingPermission")
     public int getBondState() {
@@ -462,7 +369,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      *
      * @return the connection state.
      */
-    public @State int getConnectionState() {
+    public @State
+    int getConnectionState() {
         return super.getConnectionState();
     }
 
@@ -483,11 +391,10 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      * <p>If it is requested to disable the maximum MTU size, this method sets up the MTU size at its default value:
      * {@link BLEService#MTU_SIZE_DEFAULT MTU_SIZE_DEFAULT}.</p>
      *
-     * @param enabled
-     *          True to activate the maximum possible MTU size, false to set up the MTU size to default.
-     *
+     * @param enabled True to activate the maximum possible MTU size, false to set up the MTU size to default.
      * @return True if the request could be queued.
      */
+    //判断是否支持MTU(最大传输单元,默认20或者23)设置,默认最大256字节,请求设备支持最大支持多大(目前板子为103字节)
     public boolean enableMaximumMTU(boolean enabled) {
         final int MAX_MTU_SUPPORTED = 256;
         //noinspection UnnecessaryLocalVariable
@@ -503,9 +410,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      * attempt to activate it using the GAIA protocol by calling
      * {@link GaiaUpgradeManager#setRWCPMode(boolean) setRWCPMode}.</p>
      *
-     * @param enabled
-     *          True to set the transfer mode to RWCP, false otherwise.
-     *
+     * @param enabled True to set the transfer mode to RWCP, false otherwise.
      * @return True if the request could be initiated.
      */
     public boolean enableRWCP(boolean enabled) {
@@ -525,12 +430,552 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     public IBinder onBind(Intent intent) {
         Log.i(TAG, "Service bound");
         this.initialize();
+        initHelper();
+        onHandleIntent(intent);
         this.showDebugLogs(Consts.DEBUG);
         mRWCPManager.showDebugLogs(Consts.DEBUG);
         registerBondReceiver();
         return mBinder;
     }
 
+    //----------------------------------------------------------------------------------------------
+
+    /**
+     * 初始化,升级需要用到的各种uuid
+     */
+    private void initHelper() {
+        EventBus.getDefault().register(this);
+        bluetoothHelper = BLEHelper.getInstance().init(getApplication(), 0);
+        bluetoothHelper1 = new BluetoothHelper(getApplication(), 0,10000);
+        bluetoothHelper1.initUuid(null,
+                "00005500-d102-11e1-9b23-00025b00a5a5",
+                "00005501-d102-11e1-9b23-00025b00a5a5",
+                "00005501-d102-11e1-9b23-00025b00a5a5",
+                "00005501-d102-11e1-9b23-00025b00a5a5",
+                "00005501-d102-11e1-9b23-00025b00a5a5",
+                "00005501-d102-11e1-9b23-00025b00a5a5");
+    }
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void getBinData(TransfirmDataBean dataBean) {
+        if (dataBean != null) {
+            int what = dataBean.getWhat();
+            long delay = dataBean.getDelayTimes();
+            handler.sendEmptyMessageDelayed(what, delay);
+        }
+    }
+
+    public Handler getHandler() {
+        return handler;
+    }
+
+    @SuppressLint("HandlerLeak")
+    private Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            switch (msg.what) {
+                case ActionUtils.ACTION_OTA_NOTIFY:
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_NOTIFY;
+                    if (!isReconnect) {
+                        if (dataCallback != null) {
+                            dataCallback.binChecking();
+                        }
+                    }
+                    getDataBytes(currentBin);
+//                    openNotify();
+                    break;
+
+                case ActionUtils.ACTION_OTA_ORDER_I: //发送ota升级命令(含校验bin的合法性)
+                    Log.e("currentBin----", currentBin + "");
+                    byte[] oadOrder = OrderSetUtils.ORDER_OAD;
+                    byte[] binCountBytes = new byte[]{(byte) fileNameList.size(), (byte) currentBin};
+                    byte[] headByte = TransformUtils.subBytes(initialTotalBytes, 0, 5);
+                    byte[] checkBytes = TransformUtils.combineArrays(oadOrder, binCountBytes, headByte);
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_ORDER_I;
+                    writeBytes(checkBytes);
+                    break;
+                case ActionUtils.ACTION_OTA_DATA_HEAD_I: //发送ota数据帧帧头
+                    if (currentFrame > totalFrame) {
+                        //极端情况:断开连接正在发生当前帧最后一包,先忽略此种情况
+                        return;
+                    }
+                    byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
+                    byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_DATA_HEAD_I;
+                    writeBytes(dataHeadBytes);
+                    break;
+
+                case ActionUtils.ACTION_OTA_NEXT_BIN:
+                    currentFrame = 1;
+                    totalFrame = 0;
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_NEXT_BIN;
+                    isReconnect = false;
+//                    openNotify();
+                    getDataBytes(currentBin);
+                    break;
+
+                case ActionUtils.ACTION_OTA_DATA_DATA_I: //发送ota数据帧
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_DATA_DATA_I;
+                    if (currentFrame <= totalFrame) {
+                        currentFrameBytes = DataPacketUtils.sortEachFrame(initialTotalBytes, currentFrame, totalFrame);
+                        currentTotalPacket = currentFrameBytes.length % 20 == 0 ? currentFrameBytes.length / 20 : currentFrameBytes.length / 20 + 1;
+                        if (progressCallback != null) {
+                            progressCallback.setMax(currentTotalPacket);
+                        }
+                        if (isReTransTest && isReconnect) {
+                            int length = currentFrameBytes.length - 20 * currentPacket;
+                            int offSet = currentPacket == 0 ? 0 : currentPacket - 1;
+//                            Log.e("reData----", currentFrameBytes.length + "/" + length + "/" + currentPacket);
+                            byte[] reTransBytes = TransformUtils.subBytes(currentFrameBytes, 20 * offSet, length);
+                            writeOnThread(reTransBytes, true);
+                        } else {
+                            writeOnThread(currentFrameBytes, true);
+                        }
+                    }
+                    break;
+                case ActionUtils.ACTION_OTA_DATA_LOSE_I:
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_DATA_LOSE_I;
+                    if (loseList == null) { //完整接收一帧数据
+                        if (currentFrame == totalFrame && cp == tp) {
+                            //传输完一个bin
+                            if (currentBin == fileNameList.size()) {//传输完成
+                                if (dataCallback != null) {
+                                    dataCallback.done();
+                                }
+                            }
+                            if (currentBin < fileNameList.size()) {
+                                currentBin++;
+                                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NEXT_BIN, 2000);
+                            }
+                            if (isReconnect) {//如果是重传,清除sp缓存信息
+                                SharePreferenceUtils.setValue(OtauBleService.this, "data-" + macAddress, "");
+                            }
+                            return;
+                        }
+                        currentFrame++;
+                        if (currentFrame <= totalFrame) {
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 400);
+                            if (dataCallback != null) {
+                                dataCallback.nextFrame(currentFrame, totalFrame);
+                            }
+
+                        }
+                    } else {
+                        if (loseList.length == 1) { //丢包过多,需重发此帧
+                            toast("丢包过多,重新传输");
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 400);
+                        } else {
+                            //发送丢失的包,不需要重发帧头
+                            writeBytes(loseList);
+                        }
+                    }
+                    break;
+//
+                case ActionUtils.ACTION_OTA_VALIFY_OUTTIME:
+                    if (!isBin) {
+                        toast("校验超时");
+                        if (dataCallback != null) {
+                            dataCallback.checkOutTime();
+                        }
+                    }
+                    break;
+                case ActionUtils.ACTION_OTA_RECONNECT_SEND:
+                    //断点(包括断开重传,下一次重传),从当前帧重发(终端还没实现,目前终端实现是在当前传输情况断开进入阻塞,直到接收到下一包数据继续)
+                    String cacheKey = macAddress.replaceAll(":", "");
+                    SharedPreferences preferences = getSharedPreferences("progress_cache", MODE_PRIVATE);
+                    String cache = preferences.getString(cacheKey, "");
+//                    Object cacheOb = SharePreferenceUtils.getValue(OtauBleService.this, cacheKey, null);
+                    Log.e("ob----", cache + "/" + macAddress);
+                    if (cache.contains(",")) {
+                        String[] cacheInfos = cache.split(",");
+                        int cb = Integer.valueOf(cacheInfos[0]);//当前bin
+                        int ctf = Integer.valueOf(cacheInfos[1]);//总帧
+                        int cf = Integer.valueOf(cacheInfos[2]);//当前帧
+                        int tpa = Integer.valueOf(cacheInfos[3]);//当前帧总包数
+                        int cpa = Integer.valueOf(cacheInfos[4]);//当前包
+                        Log.e("re_send----", cb + "/" + cf + "/" + cpa);
+                        getDataBytes(cb);
+                        currentFrame = cf;
+                        currentPacket = reCurrentPacket = cpa;
+                        if (isReTransTest) {
+                            if (currentTotalPacket == cpa || cpa > currentTotalPacket) {
+                                currentFrame++;
+                                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 1000);
+                            }
+                            if (cpa < currentTotalPacket) {
+                                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 1000);
+                            }
+                        } else {
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 1000);
+                        }
+                    }
+                    break;
+                case ActionUtils.ACTION_DEVICE_RECONNECT:
+                    isReconnect = true;
+                    connect();
+//                    bluetoothHelper.openVirtualLeash(true, macAddress, "");
+                    break;
+                case ActionUtils.ACTION_OPEN_NOTIFY:
+                    openNotify();
+                    break;
+                case ActionUtils.ACTION_UNPAIR_AND_CONNECT:
+                    connectDevice(true);
+                    break;
+            }
+        }
+    };
+
+    public void sendMsg(Handler handler, int what, long delayTimes) {
+        handler.sendEmptyMessageDelayed(what, delayTimes);
+    }
+
+
+    private class MyThread extends Thread {
+        private byte[] datas;
+
+        public MyThread(byte[] data) {
+            this.datas = data;
+        }
+
+        @Override
+        public void run() {
+            super.run();
+            writeBytes(datas);
+        }
+    }
+
+
+    private void writeOnThread(byte[] data, boolean withThread) {
+        if (withThread) {
+            thread = new MyThread(data);
+            if (thread.isAlive()) {
+                thread.destroy();
+            }
+            thread.start();
+        } else {
+            writeBytes(data);
+        }
+    }
+
+
+    private void writeBytes(byte[] datas) {
+
+        bluetoothHelper1.write(bleDevice,Consts.betweenTimes, datas, new BluetoothHelper.WriteListener() {
+            @Override
+            public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                Log.e("justWrite----", TransformUtils.bytesToHexString(justWrite));
+                if (writeCallback != null) {
+                    writeCallback.writeSuccess(CURRENT_ACTION, current, total, justWrite);
+                }
+
+                if (CURRENT_ACTION == ActionUtils.ACTION_OTA_ORDER_I) {
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_VALIFY_OUTTIME, 60000);
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_HEAD_I) {
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 400);
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_DATA_I) {
+                    if (isReconnect) {
+                        currentPacket = reCurrentPacket + current;
+                    } else {
+                        currentPacket = current;
+                    }
+                    current = isReconnect ? reCurrentPacket + current : current;
+                    total = isReconnect ? reCurrentPacket + total : total;
+                    float percent = (float) current / currentTotalPacket * 100;
+                    if (progressCallback != null) {
+                        progressCallback.setProgress(percent, current, currentFrame, currentBin);
+                    }
+                    cp = current;
+                    tp = total;
+                    Log.e("info---", currentFrame + "/" + totalFrame + "/" + current + "/" + total);
+
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_LOSE_I) {
+                    Log.e("loseWrite----", TransformUtils.bytesToHexString(justWrite));
+                }
+            }
+
+            @Override
+            public void onWriteFailure(BleException exception) {
+                if (writeCallback != null) {
+                    writeCallback.fail(exception.getDescription());
+                }
+            }
+        });
+    }
+
+    public void openNotify() {
+        if (bleDevice == null) {
+            toast("设备未连接");
+            if (notifyCallback != null) {
+                notifyCallback.noDevice();
+            }
+            return;
+        }
+
+        bluetoothHelper1.setNotify(bleDevice, new BluetoothHelper.BleNotifyListener() {
+            @Override
+            public void onNotifySuccess() {
+                if (isReconnect) {
+                    if (notifyCallback != null) {
+                        notifyCallback.deviceReconn();
+                    }
+
+                } else {
+//                    getDataBytes(currentBin);
+//                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 3000);
+                }
+                if (!mAuto) {
+                    startUpgrade(null);
+                    mAuto = true;
+                }
+                if (notifyCallback != null) {
+                    notifyCallback.success();
+                }
+
+            }
+
+            @Override
+            public void onNotifyFailed(BleException exception) {
+                if (notifyCallback != null) {
+                    notifyCallback.fail(exception.getDescription());
+                }
+            }
+
+            @Override
+            public void onCharacteristicChanged(byte[] data) {
+                Log.e("notifyData----", TransformUtils.bytesToHexString(data));
+                if (notifyCallback != null) {
+                    notifyCallback.charactoristicChange(CURRENT_ACTION, data);
+                }
+                if (data.length > 3) {
+                    byte responeByte = data[data.length - 1];
+                    byte moduId = data[data.length - 2];
+                    byte eventId = data[data.length - 3];
+                    //module Id                                     //event Id
+                    if (moduId == (byte) 0x02 && eventId == (byte) 0x20) { //ota校验命令
+                        if (responeByte == (byte) 0xFF) {
+                            CURRENT_ACTION = ActionUtils.ACTION_OTA_ORDER_I;
+                            toast("校验失败");
+                            if (dataCallback != null) {
+                                dataCallback.binCheckDone(false);
+                            }
+                        } else {
+                            //校验bin包成功,可以开始传输ota包,
+                            if (dataCallback != null) {
+                                dataCallback.binCheckDone(true);
+                            }
+                            isBin = true;
+                            toast("校验成功");
+                            CURRENT_ACTION = ActionUtils.ACTION_OTA_DATA_HEAD_I;
+//                            loadingWidget.hide();
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 200);
+                        }
+                    } else if (data[6] == (byte) 0x03 && data[5] == (byte) 0x20) { //ota数据包
+                        //成功接收完一帧,开始发送下一帧
+                        //0xAB 0x00 0x04 0x03  0x01  0x20 0x03  0x03  0x01 0x0A 0x64 收包回复
+                        //帧头 数据-长度 总帧 当前帧 MId  EId  丢包数 之后为丢包序号(上限五包,超过填0xFF)
+                        //若出现丢包情况,尚未确定是继续下一帧还是先补包
+                        byte[] losePacketList = DataPacketUtils.losePackets(currentFrameBytes, data);
+                        loseList = losePacketList;
+                        handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 2000);
+
+                    }
+                }
+
+                //帧回复data异常,回复命令以触发再次回复
+                if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_DATA_I) {
+                    if (data.length < 9) {
+                        byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
+                        byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
+                        byte[] responeOrderBytes = TransformUtils.combineArrays(dataHeadBytes, new byte[]{(byte) 0xFF});
+                        writeBytes(responeOrderBytes);
+                    }
+                }
+
+                //bin回复data异常,回复命令以触发再次回复
+                if (CURRENT_ACTION == ActionUtils.ACTION_OTA_ORDER_I) {
+                    if (data.length < 8) {
+                        //待定.....
+//                        byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
+//                        byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
+//                        byte[] responeOrderBytes = TransformUtils.combineArrays(dataHeadBytes, new byte[]{(byte) 0xFF});
+//                        writeBytes(responeOrderBytes);
+                    }
+                }
+            }
+        });
+
+    }
+
+    private void initData() {
+        try {
+            AssetManager assetManager = getAssets();
+            String[] assetsList = assetManager.list("");
+            for (int i = assetsList.length - 1; i >= 0; i--) {
+                if (assetsList[i].startsWith("dict") || assetsList[i].startsWith("clade")) {
+                    fileNameList.add(assetsList[i]);
+                }
+                Log.e("name---", assetsList[i] + "/" + fileNameList.size());
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private byte[] getDataBytes(int currentBin) {
+        byte[] currentBytes = null;
+        if (fileNameList == null || fileNameList.size() == 0) {
+            if (dataCallback != null) {
+                dataCallback.fileNotFound("no file was found");
+            }
+        } else {
+            try {
+                Object cacheSP = SharePreferenceUtils.getValue(this, "data-" + macAddress, "");
+                InputStream inputStream = null;
+                if (cacheSP instanceof String) {
+                    String cacheStr = (String) cacheSP;
+                    if (cacheStr.contains(",") && !isReTransTest) {
+                        String[] currentInfo = cacheStr.split(",");
+                        int cb = Integer.valueOf(currentInfo[0]);
+                        inputStream = getResources().getAssets().open(fileNameList.get(cb - 1));
+                    } else {
+                        inputStream = getResources().getAssets().open(fileNameList.get(currentBin - 1));
+                    }
+
+                }
+                initialTotalBytes = TransformUtils.streamToByte(inputStream);
+                totalFrame = (initialTotalBytes.length / 1024) % 4 != 0 ? ((initialTotalBytes.length / 1024 / 4) + 1) : (initialTotalBytes.length / 1024 / 4);
+                if (CURRENT_ACTION == ActionUtils.ACTION_OTA_NEXT_BIN || CURRENT_ACTION == ActionUtils.ACTION_OTA_NOTIFY) {
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 1000);
+                }
+//                else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_NOTIFY){
+//                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 1000);
+//                }
+            } catch (IOException e) {
+                Log.e("ble file data----", "file data can not found");
+            }
+
+        }
+        return initialTotalBytes;
+    }
+
+    public void connectDevice(boolean isAuto) {
+        this.mAuto = isAuto;
+        bluetoothHelper.openVirtualLeash(true, macAddress, "");
+        bluetoothHelper.setConnectSuccessListener((bleDevice, gatt) -> {
+            if (bleDevice != null) {
+                this.bleDevice = bleDevice;
+                this.macAddress = bleDevice.getMac();
+                connectToDevice(bleDevice.getDevice());
+//                    openNotify();
+                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OPEN_NOTIFY, 500);
+                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, gatt, bleDevice);
+                EventBus.getDefault().post(msgBean);
+            }
+        });
+        bluetoothHelper.setConnectFailListener((bleDevice, description) -> {
+            if (bleDevice != null) {
+                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_FAIL_S, bleDevice);
+                EventBus.getDefault().post(msgBean);
+            }
+        });
+        bluetoothHelper.setScanFinishListener((bleDevice) -> {
+            if (bleDevice != null) {
+                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_SCAN_SUCCESS_S, bleDevice);
+                EventBus.getDefault().post(msgBean);
+            } else {
+                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_SCAN_FAIL_S, null);
+                EventBus.getDefault().post(msgBean);
+            }
+        });
+        bluetoothHelper.setDisconnectListener((bleDevice, bluetoothGatt) -> {
+            //断开连接,记录数据传输情况
+            isReconnect = true;
+            disconnectDevice();
+            if (currentFrame < totalFrame) {
+                Log.e("cache---", currentBin + "/" + totalFrame + "/" + currentFrame + "/" + currentPacket + "/" + macAddress);
+                String spCache = currentBin + "," + totalFrame + "," + currentFrame + "," + tp + "," + currentPacket + 1;
+                String cacheKey = macAddress.replaceAll(":", "");
+                SharedPreferences preferences = getSharedPreferences("progress_cache", MODE_PRIVATE);
+                preferences.edit().putString(cacheKey, spCache).commit();
+//                SharePreferenceUtils.setValue(this, cacheKey, spCache); //记录当前设备传输情况
+            }
+            MsgBean msgBean = new MsgBean(ActionUtils.ACTION_DISCONNECT_S, bleDevice);
+            EventBus.getDefault().post(msgBean);
+        });
+        bluetoothHelper.setReconnectSuccessListener((bleDevice -> {
+            //若重新连接上,尚未确定是继续传输还是???,暂定为关闭service,若下次启动,将从断位开始
+//                stopSelf();
+            reconnectToDevice();
+            MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, bleDevice);
+            EventBus.getDefault().post(msgBean);
+        }));
+        //监听characteristic变化
+        bluetoothHelper.setCharacteristicChangeListener(((gatt, characteristic) -> {
+            Log.e("crtChange---", TransformUtils.bytes2String(characteristic.getValue()));
+        }));
+    }
+
+    private void connect() {
+        boolean isBond = bluetoothHelper1.connectOnBondDevice(macAddress);
+        long delayTimes = 0;
+        if (isBond) {
+            delayTimes = 1000;
+        }
+        handler.sendEmptyMessageDelayed(ActionUtils.ACTION_UNPAIR_AND_CONNECT, delayTimes);
+    }
+
+    public void handleConnect(String mac){
+        this.macAddress=mac;
+        connect();
+    }
+
+    protected void onHandleIntent(Intent intent) {
+        initData();
+        String action = intent.getAction();
+        if (Objects.equals(action, ActionUtils.ACTION_DEVICE_SCAN)) {
+            //设备mac地址
+            if (bleDevice != null) {
+                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 1000);
+            } else {
+                macAddress = intent.getStringExtra("mac_address");
+                connect();
+            }
+
+        } else if (Objects.equals(action, "OTA_START")) {
+            //处理bin文件,转换成byte数组
+//            byte[] packetsByte = combinePacket();
+
+        }
+    }
+
+    public void setProgressCallback(ProgressCallback callback) {
+        this.progressCallback = callback;
+    }
+
+    public void setNotifyCallback(NotifyCallback notifyCallback) {
+        this.notifyCallback = notifyCallback;
+    }
+
+    public void setWriteCallback(WriteCallback writeCallback) {
+        this.writeCallback = writeCallback;
+    }
+
+    public void setDataCallback(DataCallback dataCallback) {
+        this.dataCallback = dataCallback;
+    }
+
+    public void startBleUpgrade() {
+        if (bleDevice == null) {
+
+        }
+    }
+
+    private void toast(String msg) {
+        Toast.makeText(this, "show---:" + msg, Toast.LENGTH_LONG).show();
+    }
+
+    //---------------------------------------------------------------------------------------------
     @Override
     public boolean onUnbind(Intent intent) {
         Log.i(TAG, "Service unbound");
@@ -560,7 +1005,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     }
 
     @Override // GaiaUpgradeManager.GaiaManagerListener
-    public void onResumePointChanged(@ResumePoints.Enum int point) {
+    public void onResumePointChanged(@Enums int point) {
         sendMessageToListener(MessageType.UPGRADE_STEP_HAS_CHANGED, point);
     }
 
@@ -579,8 +1024,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         if (mGaiaManager.isRWCPEnabled()) {
             // queued the progress as the transmission to the device is validated by the RWCP manager
             mProgressQueue.add(progress);
-        }
-        else {
+        } else {
             sendMessageToListener(MessageType.UPGRADE_UPLOAD_PROGRESS, progress);
         }
     }
@@ -593,13 +1037,11 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             }
             mRWCPManager.sendData(data);
             return true;
-        }
-        else {
+        } else {
             boolean done = requestWriteCharacteristic(mCharacteristicGaiaCommand, data);
             if (done && DEBUG) {
                 Log.i(TAG, "Attempt to send GAIA packet on COMMAND characteristic: " + Utils.getStringFromBytes(data));
-            }
-            else if (!done) {
+            } else if (!done) {
                 Log.w(TAG, "Attempt to send GAIA packet on COMMAND characteristic FAILED: " + Utils.getStringFromBytes
                         (data));
             }
@@ -613,7 +1055,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     }
 
     @Override // GaiaUpgradeManager.GaiaManagerListener
-    public void askConfirmationFor(@UpgradeManager.ConfirmationType int type) {
+    public void askConfirmationFor(@ConfirmationType int type) {
         if (!sendMessageToListener(MessageType.UPGRADE_REQUEST_CONFIRMATION, type)) {
             // default behaviour? use a notification?
             sendConfirmation(type, true);
@@ -646,9 +1088,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         if (done && DEBUG) {
             Log.i(TAG, "Attempt to send RWCP segment on DATA ENDPOINT characteristic: "
                     + Utils.getStringFromBytes(bytes));
-        }
-
-        else if (!done) {
+        } else if (!done) {
             Log.w(TAG, "Attempt to send RWCP segment on DATA ENDPOINT characteristic FAILED: "
                     + Utils.getStringFromBytes(bytes));
         }
@@ -715,13 +1155,12 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     /**
      * <p>To inform the listener by sending it a message.</p>
      *
-     * @param message
-     *         The message type to send.
+     * @param message The message type to send.
      */
     @SuppressWarnings("UnusedReturnValue") // the return value is used for some implementations
     private boolean sendMessageToListener(@MessageType int message) {
         if (!mAppListeners.isEmpty()) {
-            for (int i=0; i<mAppListeners.size(); i++) {
+            for (int i = 0; i < mAppListeners.size(); i++) {
                 mAppListeners.get(i).obtainMessage(message).sendToTarget();
             }
         }
@@ -731,14 +1170,12 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     /**
      * <p>To inform the listener by sending it a message.</p>
      *
-     * @param message
-     *         The message type to send.
-     * @param object
-     *         Any object to send to the listener.
+     * @param message The message type to send.
+     * @param object  Any object to send to the listener.
      */
     private boolean sendMessageToListener(@MessageType int message, Object object) {
         if (!mAppListeners.isEmpty()) {
-            for (int i=0; i<mAppListeners.size(); i++) {
+            for (int i = 0; i < mAppListeners.size(); i++) {
                 mAppListeners.get(i).obtainMessage(message, object).sendToTarget();
             }
         }
@@ -756,8 +1193,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             sendMessageToListener(MessageType.CONNECTION_STATE_HAS_CHANGED, State.CONNECTED);
             Log.i(TAG, "Attempting to start service discovery: " + gatt.discoverServices());
             // now wait for onServicesDiscovered to be called in order to communicate over GATT with the device
-        }
-        else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+        } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
             resetDeviceInformation();
             sendMessageToListener(MessageType.CONNECTION_STATE_HAS_CHANGED, State.DISCONNECTED);
             if (isUpdating()) {
@@ -802,7 +1238,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                             int properties = gattCharacteristic.getProperties();
                             mIsRWCPSupported =
                                     (properties & BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) > 0
-                                    && (properties & BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0;
+                                            && (properties & BluetoothGattCharacteristic.PROPERTY_NOTIFY) > 0;
                             sendMessageToListener(MessageType.RWCP_SUPPORTED, mIsRWCPSupported);
                             mCharacteristicGaiaData = gattCharacteristic;
                         }
@@ -832,8 +1268,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                             "available or with wrong properties");
                     message.append(gaiaResponseCharacteristicAvailable ? "\t- GAIA RESPONSE" : "\t- GAIA RESPONSE not" +
                             " available or with wrong properties");
-                }
-                else {
+                } else {
                     message.append("not available.");
                 }
                 Log.w(TAG, message.toString());
@@ -868,14 +1303,12 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                 if (data != null) {
                     mGaiaManager.onReceiveGAIAPacket(data);
                 }
-            }
-            else if (uuid.equals(GAIA_CHARACTERISTIC_DATA_ENDPOINT_UUID)) {
+            } else if (uuid.equals(GAIA_CHARACTERISTIC_DATA_ENDPOINT_UUID)) {
                 byte[] data = characteristic.getValue();
                 if (data != null) {
                     mRWCPManager.onReceiveRWCPSegment(data);
                 }
-            }
-            else {
+            } else {
                 Log.i(TAG, "Received notification over characteristic: " + characteristic.getUuid());
             }
         }
@@ -885,10 +1318,9 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
 
     /**
      * 写特征描述,在请求描述符写入操作时调用此方法。
-     * @param gatt
-     *              The Bluetooth gatt which requested the descriptor write operation.
-     * @param descriptor
-     *              The Bluetooth Characteristic Descriptor for which a request has been made.
+     *
+     * @param gatt       The Bluetooth gatt which requested the descriptor write operation.
+     * @param descriptor The Bluetooth Characteristic Descriptor for which a request has been made.
      * @param status
      */
     @Override
@@ -900,14 +1332,12 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             if (mIsRWCPSupported) {
                 mGaiaManager.getRWCPStatus();
             }
-        }
-        else if (characteristicUuid.equals(GAIA_CHARACTERISTIC_DATA_ENDPOINT_UUID)) {
+        } else if (characteristicUuid.equals(GAIA_CHARACTERISTIC_DATA_ENDPOINT_UUID)) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 boolean enabled = Arrays.equals(descriptor.getValue(),
                         BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                 sendMessageToListener(MessageType.RWCP_ENABLED, enabled);
-            }
-            else {
+            } else {
                 mIsRWCPSupported = false;
                 mGaiaManager.onRWCPNotSupported();
                 sendMessageToListener(MessageType.RWCP_SUPPORTED, false);
@@ -926,10 +1356,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     /**
      * 最大传输单元,此方法当调用修改蓝牙设备之间最大传输字节(默认最大20字节)方法(即BluetoothGatt.requestMtu())时被回调调用,前提是主从蓝牙设备都支持修改,否则无效
      *
-     * @param gatt
-     *              The Bluetooth gatt which requested the remote rssi.
-     * @param mtu
-     *              The mtu value chosen with the remote device.
+     * @param gatt   The Bluetooth gatt which requested the remote rssi.
+     * @param mtu    The mtu value chosen with the remote device.
      * @param status
      */
     @Override
@@ -937,8 +1365,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         if (status == BluetoothGatt.GATT_SUCCESS) {
             Log.i(TAG, "MTU size had been updated to " + mtu);
             sendMessageToListener(MessageType.MTU_UPDATED, mtu);
-        }
-        else {
+        } else {
             Log.w(TAG, "MTU request failed, mtu size is: " + mtu);
             sendMessageToListener(MessageType.MTU_SUPPORTED, false);
         }
@@ -990,8 +1417,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
     /**
      * <p>This method will act depending on the bond state of a connected device.</p>
      * <ul>
-     *     <li>Device bonded: the process for notification registration starts.</li>
-     *     <li>Device not bonded: the process to induce pairing if needed starts.</li>
+     * <li>Device bonded: the process for notification registration starts.</li>
+     * <li>Device not bonded: the process to induce pairing if needed starts.</li>
      * </ul>
      */
     @SuppressLint("MissingPermission")
@@ -1007,8 +1434,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             // to be able to cover all cases we read a characteristic in order to induce the pairing if needed
             // if pairing is requested the DATA characteristic requires pairing to be read.
             requestReadCharacteristicForPairing(GAIA_CHARACTERISTIC_DATA_ENDPOINT_UUID);
-        }
-        else {
+        } else {
             // carry on the process: device already paired
             Log.i(TAG, "Device already bonded " + device.getAddress());
             requestCharacteristicNotification(GAIA_CHARACTERISTIC_RESPONSE_UUID, true);

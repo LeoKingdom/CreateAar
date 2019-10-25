@@ -140,7 +140,7 @@ public class BLEHelper {
                 connectSuccessListener.connectSuccess(bleDevice, gatt);
             }
             if (reconnSate) {
-                if (disConnDeviceMap.containsKey(bleDevice.getName())) {
+                if (disConnDeviceMap.containsKey(bleDevice.getName()) && reconnectSuccessListener != null) {
                     reconnSate = false;
                     reconnectSuccessListener.reconnectSuccess(bleDevice);
                 }
@@ -168,11 +168,11 @@ public class BLEHelper {
             }
 
             if (reconnSate && disConnDeviceMap.size() > 0) {
-                if (disConnDeviceMap.containsKey(bleDevice.getName())) {
+                if (disConnDeviceMap.containsKey(bleDevice.getName()) && reconnectFailListener != null) {
                     reconnectFailListener.reconnectFail(bleDevice);
                 }
                 double distance = getDistance(connDeviceRssiMap.get(bleDevice.getName()));
-                if (bleDevice.getRssi() == 0 || distance > 10) {
+                if ((bleDevice.getRssi() == 0 || distance > 10) && deviceAwayListener != null) {
                     deviceAwayListener.deviceAway(bleDevice);
                 }
                 Log.e("distance---", distance + "");
@@ -204,7 +204,7 @@ public class BLEHelper {
                 disconnectListener.disconnect(device, gatt);
             }
 
-            if (!bleManager.isBlueEnable()) {
+            if (!bleManager.isBlueEnable() && deviceSelfDisableListener != null) {
                 deviceSelfDisableListener.deviceSelfDisable();
             }
         }

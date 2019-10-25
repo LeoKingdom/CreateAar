@@ -19,18 +19,4 @@ public class ESimHelper {
         }
     }
 
-    /**
-     * 激活之前的各种检查(ble)接口回调
-     */
-    public interface ActiveCheckCallback{
-
-    }
-
-    /**
-     * 激活状态接口回调
-     */
-    public interface EsimActiveCallback{
-        void activeSuccess(String msg);
-        void activeFail(String error);
-    }
 }

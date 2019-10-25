@@ -11,6 +11,9 @@ import android.support.annotation.IntDef;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
+import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
+import com.ly.bluetoothhelper.oat.annotation.Enums;
+import com.ly.bluetoothhelper.oat.annotation.ErrorTypes;
 import com.ly.bluetoothhelper.oat.upgrade.codes.OpCodes;
 import com.ly.bluetoothhelper.oat.upgrade.codes.ResumePoints;
 import com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes;
@@ -65,7 +68,8 @@ public class UpgradeManager {
     /**
      * The value of the actual resume point to display to the user.
      */
-    private @ResumePoints.Enum int mResumePoint;
+    private @Enums
+    int mResumePoint;
     /**
      * The file to upload on the board.
      */
@@ -238,7 +242,7 @@ public class UpgradeManager {
 
         if (mFile == null) {
             // no file
-            mListener.onUpgradeProcessError(new UpgradeError(UpgradeError.ErrorTypes.NO_FILE));
+            mListener.onUpgradeProcessError(new UpgradeError(ErrorTypes.NO_FILE));
             return;
         }
 
@@ -330,9 +334,9 @@ public class UpgradeManager {
      */
     public void onSuccessfulTransmission() {
         if (wasLastPacket) {
-            if (mResumePoint == ResumePoints.Enum.DATA_TRANSFER) {
+            if (mResumePoint == Enums.DATA_TRANSFER) {
                 wasLastPacket = false;
-                setResumePoint(ResumePoints.Enum.VALIDATION);
+                setResumePoint(Enums.VALIDATION);
                 sendValidationDoneReq();
             }
         }
@@ -341,7 +345,7 @@ public class UpgradeManager {
             abortUpgrade();
         }
         else {
-            if (mBytesToSend > 0 && mResumePoint == ResumePoints.Enum.DATA_TRANSFER && !mSendMultiplePackets) {
+            if (mBytesToSend > 0 && mResumePoint == Enums.DATA_TRANSFER && !mSendMultiplePackets) {
                 sendNextDataPacket();
             }
         }
@@ -409,7 +413,7 @@ public class UpgradeManager {
      *
      * @return The current resume point.
      */
-    public @ResumePoints.Enum int getResumePoint() {
+    public @Enums int getResumePoint() {
         return mResumePoint;
     }
 
@@ -445,10 +449,10 @@ public class UpgradeManager {
      * {@link com.ly.bluetoothhelper.oat.upgrade.codes.OpCodes.Enum#UPGRADE_SYNC_REQ UPGRADE_SYNC_REQ} to start the
      * process.</p>
      * <p>This method can dispatch a VMUError object if the manager has not been able to start the upgrade process.</p>
-     * <p>The possible {@link UpgradeError.ErrorTypes ErrorTypes} are the following:
+     * <p>The possible {@link ErrorTypes ErrorTypes} are the following:
      * <ul>
-     *     <li>{@link UpgradeError.ErrorTypes#AN_UPGRADE_IS_ALREADY_PROCESSING AN_UPGRADE_IS_ALREADY_PROCESSING}</li>
-     *     <li>{@link UpgradeError.ErrorTypes#NO_FILE NO_FILE}</li>
+     *     <li>{@link ErrorTypes#AN_UPGRADE_IS_ALREADY_PROCESSING AN_UPGRADE_IS_ALREADY_PROCESSING}</li>
+     *     <li>{@link ErrorTypes#NO_FILE NO_FILE}</li>
      * </ul></p>
      *
      * @since 1.1.0
@@ -460,11 +464,11 @@ public class UpgradeManager {
             sendSyncReq();
         }
         else if (isUpgrading) {
-            mListener.onUpgradeProcessError(new UpgradeError(UpgradeError.ErrorTypes.AN_UPGRADE_IS_ALREADY_PROCESSING));
+            mListener.onUpgradeProcessError(new UpgradeError(ErrorTypes.AN_UPGRADE_IS_ALREADY_PROCESSING));
         }
         else {
             // mBytesFile == null
-            mListener.onUpgradeProcessError(new UpgradeError(UpgradeError.ErrorTypes.NO_FILE));
+            mListener.onUpgradeProcessError(new UpgradeError(ErrorTypes.NO_FILE));
         }
     }
 
@@ -509,7 +513,7 @@ public class UpgradeManager {
      * @param point
      *              The resume point ot define as the actual one.
      */
-    private void setResumePoint(@ResumePoints.Enum int point) {
+    private void setResumePoint(@Enums int point) {
         mResumePoint = point;
         mListener.onResumePointChanged(point);
     }
@@ -628,7 +632,7 @@ public class UpgradeManager {
      * To send an UPGRADE_START_DATA_REQ message.
      */
     private void sendStartDataReq () {
-        setResumePoint(ResumePoints.Enum.DATA_TRANSFER);
+        setResumePoint(Enums.DATA_TRANSFER);
         VMUPacket packet = new VMUPacket(OpCodes.Enum.UPGRADE_START_DATA_REQ);
         sendVMUPacket(packet, false);
     }
@@ -785,7 +789,7 @@ public class UpgradeManager {
             askForConfirmation(ConfirmationType.WARNING_FILE_IS_DIFFERENT);
         }
         else {
-            UpgradeError vmuError = new UpgradeError(UpgradeError.ErrorTypes.RECEIVED_ERROR_FROM_BOARD, returnCode);
+            UpgradeError vmuError = new UpgradeError(ErrorTypes.RECEIVED_ERROR_FROM_BOARD, returnCode);
             startAbortion(vmuError);
         }
 
@@ -798,7 +802,7 @@ public class UpgradeManager {
     private void receiveSyncCFM(VMUPacket packet) {
         byte[] data = packet.getData();
         if (data.length >= OpCodes.UpgradeSyncCFM.DATA_LENGTH) {
-            @ResumePoints.Enum int step = ResumePoints.getResumePoint(data[OpCodes.UpgradeSyncCFM.RESUME_POINT_OFFSET]);
+            @Enums int step = ResumePoints.getResumePoint(data[OpCodes.UpgradeSyncCFM.RESUME_POINT_OFFSET]);
             //noinspection UnusedAssignment
             int identifier = VMUUtils.extractIntFromByteArray(data, OpCodes.UpgradeSyncCFM.IDENTIFIER_OFFSET, OpCodes.UpgradeSyncCFM.IDENTIFIER_LENGTH, false);
             //noinspection UnusedAssignment
@@ -806,7 +810,7 @@ public class UpgradeManager {
             setResumePoint(step);
         }
         else {
-            setResumePoint(ResumePoints.Enum.DATA_TRANSFER);
+            setResumePoint(Enums.DATA_TRANSFER);
         }
         sendStartReq();
     }
@@ -833,19 +837,19 @@ public class UpgradeManager {
                 mStartAttempts = 0;
                 // the device is ready for the upgrade, we can go to the resume point or to the upgrade beginning.
                 switch (mResumePoint) {
-                    case ResumePoints.Enum.COMMIT:
+                    case Enums.COMMIT:
                         askForConfirmation(ConfirmationType.COMMIT);
                         break;
-                    case ResumePoints.Enum.TRANSFER_COMPLETE:
+                    case Enums.TRANSFER_COMPLETE:
                         askForConfirmation(ConfirmationType.TRANSFER_COMPLETE);
                         break;
-                    case ResumePoints.Enum.IN_PROGRESS:
+                    case Enums.IN_PROGRESS:
                         askForConfirmation(ConfirmationType.IN_PROGRESS);
                         break;
-                    case ResumePoints.Enum.VALIDATION:
+                    case Enums.VALIDATION:
                         sendValidationDoneReq();
                         break;
-                    case ResumePoints.Enum.DATA_TRANSFER:
+                    case Enums.DATA_TRANSFER:
                     default:
                         sendStartDataReq();
                         break;
@@ -867,17 +871,17 @@ public class UpgradeManager {
                 }
                 else {
                     mStartAttempts = 0;
-                    UpgradeError error = new UpgradeError(UpgradeError.ErrorTypes.ERROR_BOARD_NOT_READY);
+                    UpgradeError error = new UpgradeError(ErrorTypes.ERROR_BOARD_NOT_READY);
                     startAbortion(error);
                 }
             }
             else {
-                UpgradeError error = new UpgradeError(UpgradeError.ErrorTypes.WRONG_DATA_PARAMETER);
+                UpgradeError error = new UpgradeError(ErrorTypes.WRONG_DATA_PARAMETER);
                 startAbortion(error);
             }
         }
         else {
-            UpgradeError error = new UpgradeError(UpgradeError.ErrorTypes.WRONG_DATA_PARAMETER);
+            UpgradeError error = new UpgradeError(ErrorTypes.WRONG_DATA_PARAMETER);
             startAbortion(error);
         }
     }
@@ -920,7 +924,7 @@ public class UpgradeManager {
             }
         }
         else {
-            UpgradeError error = new UpgradeError(UpgradeError.ErrorTypes.WRONG_DATA_PARAMETER);
+            UpgradeError error = new UpgradeError(ErrorTypes.WRONG_DATA_PARAMETER);
             startAbortion(error);
         }
     }
@@ -951,7 +955,7 @@ public class UpgradeManager {
      * next step which is to send a validation to continue the process or to abort it temporally - it will be done later.
      */
     private void receiveTransferCompleteIND() {
-        setResumePoint(ResumePoints.Enum.TRANSFER_COMPLETE);
+        setResumePoint(Enums.TRANSFER_COMPLETE);
         askForConfirmation(ConfirmationType.TRANSFER_COMPLETE);
     }
 
@@ -960,7 +964,7 @@ public class UpgradeManager {
      * next step which is to send a validation to continue the process or to abort it temporally - it will be done later.
      */
     private void receiveCommitREQ() {
-        setResumePoint(ResumePoints.Enum.COMMIT);
+        setResumePoint(Enums.COMMIT);
         askForConfirmation(ConfirmationType.COMMIT);
     }
 
@@ -1012,7 +1016,7 @@ public class UpgradeManager {
          * @param point
          *              The step which is now in process with this manager.
          */
-        void onResumePointChanged(@ResumePoints.Enum int point);
+        void onResumePointChanged(@Enums int point);
 
         /**
          * <p>This method is called when the upgrade process has successfully ended.</p>
@@ -1047,53 +1051,7 @@ public class UpgradeManager {
         void disconnectUpgrade();
     }
 
-    /**
-     * <p>All the types of confirmation this manager could request from the listener depending on the messages
-     * received from the board.</p>
-     */
-    @IntDef(flag = true, value = { ConfirmationType.TRANSFER_COMPLETE, ConfirmationType.COMMIT,  ConfirmationType
-            .IN_PROGRESS, ConfirmationType.BATTERY_LOW_ON_DEVICE, ConfirmationType.WARNING_FILE_IS_DIFFERENT })
-    @Retention(RetentionPolicy.SOURCE)
-    @SuppressLint("ShiftFlags") // values are more readable this way
-    public @interface ConfirmationType {
-        /**
-         * <p>When the manager receives the
-         * {@link OpCodes.Enum#UPGRADE_TRANSFER_COMPLETE_IND
-         * UPGRADE_TRANSFER_COMPLETE_IND} message, the board is asking for a confirmation to
-         * {@link OpCodes.UpgradeTransferCompleteRES.Action#CONTINUE CONTINUE}
-         * or {@link OpCodes.UpgradeTransferCompleteRES.Action#ABORT ABORT}  the
-         * process.</p>
-         */
-        int TRANSFER_COMPLETE = 1;
-        /**
-         * <p>When the manager receives the
-         * {@link OpCodes.Enum#UPGRADE_COMMIT_REQ UPGRADE_COMMIT_REQ} message, the
-         * board is asking for a confirmation to
-         * {@link OpCodes.UpgradeCommitCFM.Action#CONTINUE CONTINUE}
-         * or {@link OpCodes.UpgradeCommitCFM.Action#ABORT ABORT}  the process.</p>
-         */
-        int COMMIT = 2;
-        /**
-         * <p>When the resume point
-         * {@link ResumePoints.Enum#IN_PROGRESS IN_PROGRESS} is reached, the board
-         * is expecting to receive a confirmation to
-         * {@link OpCodes.UpgradeInProgressRES.Action#CONTINUE CONTINUE}
-         * or {@link OpCodes.UpgradeInProgressRES.Action#ABORT ABORT} the process.</p>
-         */
-        int IN_PROGRESS = 3;
-        /**
-         * <p>When the Host receives
-         * {@link com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes.Enum#WARN_SYNC_ID_IS_DIFFERENT WARN_SYNC_ID_IS_DIFFERENT},
-         * the listener has to ask if the upgrade should continue or not.</p>
-         */
-        int WARNING_FILE_IS_DIFFERENT = 4;
-        /**
-         * <p>>When the Host receives
-         * {@link com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes.Enum#ERROR_BATTERY_LOW ERROR_BATTERY_LOW},the
-         * listener has to ask if the upgrade should continue or not.</p>
-         */
-        int BATTERY_LOW_ON_DEVICE = 5;
-    }
+   
 
 }
 

@@ -7,6 +7,7 @@ package com.ly.bluetoothhelper.oat.ble;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 
+import com.ly.bluetoothhelper.oat.annotation.State;
 import com.ly.bluetoothhelper.oat.service.BLEService;
 
 /**
@@ -48,10 +49,10 @@ public class BLEUtils {
     /**
      * <p>To get a label for the different known connection states.</p>
      * <p>If the given state is not one of the states known as
-     * {@link com.ly.bluetoothhelper.oat.service.BLEService.State#CONNECTED CONNECTED},
-     * {@link com.ly.bluetoothhelper.oat.service.BLEService.State#CONNECTING CONNECTING},
-     * {@link com.ly.bluetoothhelper.oat.service.BLEService.State#DISCONNECTING DISCONNECTING} and
-     * {@link com.ly.bluetoothhelper.oat.service.BLEService.State#DISCONNECTED DISCONNECTED}, this
+     * {@link State#CONNECTED CONNECTED},
+     * {@link State#CONNECTING CONNECTING},
+     * {@link State#DISCONNECTING DISCONNECTING} and
+     * {@link State#DISCONNECTED DISCONNECTED}, this
      * method returns "UNKNOWN" as the label.</p>
      *
      * @param state
@@ -59,11 +60,11 @@ public class BLEUtils {
      *
      * @return The label which corresponds to the given state.
      */
-    public static String getConnectionStateName(@BLEService.State int state) {
-        return state == BLEService.State.CONNECTED ? "CONNECTION" :
-                state == BLEService.State.CONNECTING ? "CONNECTING" :
-                        state == BLEService.State.DISCONNECTING ? "DISCONNECTING" :
-                                state == BLEService.State.DISCONNECTED ? "DISCONNECTED" : "UNKNOWN";
+    public static String getConnectionStateName(@State int state) {
+        return state == State.CONNECTED ? "CONNECTION" :
+                state == State.CONNECTING ? "CONNECTING" :
+                        state == State.DISCONNECTING ? "DISCONNECTING" :
+                                state == State.DISCONNECTED ? "DISCONNECTED" : "UNKNOWN";
     }
 
     /**

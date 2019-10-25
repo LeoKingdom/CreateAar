@@ -17,6 +17,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.ly.bluetoothhelper.R;
+import com.ly.bluetoothhelper.oat.annotation.Enums;
 import com.ly.bluetoothhelper.oat.upgrade.UploadProgress;
 import com.ly.bluetoothhelper.oat.upgrade.codes.ResumePoints;
 import com.ly.bluetoothhelper.utils.Utils;
@@ -199,11 +200,11 @@ public class VMUpgradeDialog extends DialogFragment {
     /**
      * To update the view depending on the actual step.
      */
-    public void updateStep(@ResumePoints.Enum int step) {
+    public void updateStep(@Enums int step) {
         String text = ResumePoints.getLabel(step);
         mTVStep.setText(text);
 
-        if (step == ResumePoints.Enum.DATA_TRANSFER) {
+        if (step == Enums.DATA_TRANSFER) {
             mLTransfer.setVisibility(View.VISIBLE);
             mProgressBar.setVisibility(View.VISIBLE);
             mIndeterminateProgressBar.setVisibility(View.GONE);
@@ -280,6 +281,6 @@ public class VMUpgradeDialog extends DialogFragment {
          * @return
          *          The actual resume point to display the step into the dialog.
          */
-        @ResumePoints.Enum int getResumePoint();
+        @Enums int getResumePoint();
     }
 }

@@ -4,11 +4,14 @@
 
 package com.ly.bluetoothhelper.utils;
 
+import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.graphics.drawable.Drawable;
+import android.util.Log;
 
 import com.ly.bluetoothhelper.R;
 
+import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -263,5 +266,17 @@ public class Utils {
             }
         }
         return result;
+    }
+
+
+    //反射来调用BluetoothDevice.removeBond取消设备的配对
+    public static void unpairDevice(BluetoothDevice device) {
+        try {
+            Method m = device.getClass()
+                    .getMethod("removeBond", (Class[]) null);
+            m.invoke(device, (Object[]) null);
+        } catch (Exception e) {
+            Log.e("bondRemove--", e.getMessage());
+        }
     }
 }

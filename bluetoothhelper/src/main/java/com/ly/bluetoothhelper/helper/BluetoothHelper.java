@@ -1,7 +1,9 @@
 package com.ly.bluetoothhelper.helper;
 
+import android.annotation.SuppressLint;
 import android.app.Application;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.content.Context;
@@ -23,8 +25,11 @@ import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.scan.BleScanRuleConfig;
 import com.clj.fastble.utils.BleLog;
+import com.ly.bluetoothhelper.utils.TransformUtils;
+import com.ly.bluetoothhelper.utils.Utils;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -40,6 +45,7 @@ public class BluetoothHelper {
     private BleManager bleManager;
     private BleUuidHelper uuidHelper;
     private int reconnectCount = 5;
+    private int operateTime = 5000;//操作超时时间,主要在使用开启notify时需要设置长一点
 
     public BluetoothHelper(Application application) {
         bleManager = BleManager.getInstance();
@@ -52,9 +58,32 @@ public class BluetoothHelper {
         this.initProperties(application);
     }
 
+    public BluetoothHelper(Application application, int reConnCount, int operateTime) {
+        bleManager = BleManager.getInstance();
+        this.reconnectCount = reConnCount;
+        this.operateTime = operateTime;
+        this.initProperties(application);
+    }
+
 
     public BleManager getBleManager() {
         return bleManager;
+    }
+
+    @SuppressLint("MissingPermission")
+    public boolean connectOnBondDevice(String macAddress) {
+        BluetoothAdapter bleAdapter = bleManager.getBluetoothAdapter();
+        if (bleAdapter != null) {
+            Set<BluetoothDevice> deviceList = bleAdapter.getBondedDevices();
+            for (BluetoothDevice device : deviceList) {
+//                Log.e("bond-----",device.getAddress()+"/"+macAddress);
+                if (macAddress.equals(device.getAddress())) {
+                    Utils.unpairDevice(device);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public static boolean isSupportBle() {
@@ -486,6 +515,7 @@ public class BluetoothHelper {
 
     /**
      * 设备通知的回调
+     *
      * @param charactoristicChangeListener
      */
     public void setCharacteristicChangeListener(CharacteristicChangeListener charactoristicChangeListener) {
@@ -567,7 +597,7 @@ public class BluetoothHelper {
     public void setNotify(BleDevice bleDevice, BleNotifyListener listener) {
         if (uuidHelper == null) uuidHelper = new BleUuidHelper();
         //必须设置true参数，看源码就懂了
-        BleManager.getInstance().notify(bleDevice, uuidHelper.getServiceUuid(), uuidHelper.getNotiyUuid(), true, new BleNotifyCallback() {
+        BleManager.getInstance().notify(bleDevice, uuidHelper.getServiceUuid(), uuidHelper.getNotiyUuid(), false, new BleNotifyCallback() {
             // 打开通知操作成功
             @Override
             public void onNotifySuccess() {//对应了onDescriptorWrite的回调
@@ -635,10 +665,39 @@ public class BluetoothHelper {
      * 写数据的回调,默认大于20字节时，会分割数据，大于20字节直接是默认写完一次后回调了onCharacteristicWrite后，就继续发下一个数据了。
      *
      * @param bleDevice 蓝牙设备
+     * @param intervalBetweenTime 两包之间间隔时间  ms
      * @param dates     传输的字节数据
      * @param listener  监听回调
      */
-    public void write(BleDevice bleDevice, byte[] dates, boolean nextPacketSuccess, long betweenPacketInterval,WriteListener listener) {
+    public void write(BleDevice bleDevice,long intervalBetweenTime, byte[] dates, WriteListener listener) {
+        BleManager.getInstance().write(
+                bleDevice,
+                uuidHelper.getServiceUuid(),
+                uuidHelper.getWriteUuid(),
+                dates,
+                intervalBetweenTime,
+                new BleWriteCallback() {
+                    @Override
+                    public void onWriteSuccess(int current, int total, byte[] justWrite) {//对应了onCharacteristicWrite的回调
+                        listener.onWriteSuccess(current, total, justWrite);
+                    }
+
+                    @Override
+                    public void onWriteFailure(BleException exception) {
+                        // 发送数据到设备失败
+                        listener.onWriteFailure(exception);
+                    }
+                });
+    }
+
+    /**
+     * 写数据的回调,默认大于20字节时，会分割数据，大于20字节直接是默认写完一次后回调了onCharacteristicWrite后，就继续发下一个数据了。
+     *
+     * @param bleDevice 蓝牙设备
+     * @param dates     传输的字节数据
+     * @param listener  监听回调
+     */
+    public void write(BleDevice bleDevice, byte[] dates, boolean nextPacketSuccess, long betweenPacketInterval, WriteListener listener) {
         BleManager.getInstance().setIntervalBetweenPacket(betweenPacketInterval);
         BleManager.getInstance().setWhenNextPacketSuccess(nextPacketSuccess);
         BleManager.getInstance().write(
@@ -718,7 +777,7 @@ public class BluetoothHelper {
         bleManager.enableLog(true)
                 .setReConnectCount(reconnectCount, 5000)
                 .setConnectOverTime(20000)
-                .setOperateTimeout(5000);
+                .setOperateTimeout(operateTime);
     }
 
     /**

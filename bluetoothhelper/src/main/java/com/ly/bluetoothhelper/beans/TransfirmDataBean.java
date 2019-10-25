@@ -14,7 +14,25 @@ public class TransfirmDataBean implements Serializable {
     int currentBin; //当前bin文件
     byte[] datas; //当前bin文件的数据流(字节流)
     boolean isBreak;//是否是断点续传
+    int what;
 
+    public int getWhat() {
+        return what;
+    }
+
+    public void setWhat(int what) {
+        this.what = what;
+    }
+
+    public long getDelayTimes() {
+        return delayTimes;
+    }
+
+    public void setDelayTimes(long delayTimes) {
+        this.delayTimes = delayTimes;
+    }
+
+    long delayTimes;
     public int getCurrentBin() {
         return currentBin;
     }

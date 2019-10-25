@@ -72,8 +72,9 @@ public class BleManager {
         this.intervalBetweenPacket = intervalBetweenPacket;
     }
 
-    private boolean whenNextPacketSuccess=true;
-    private long intervalBetweenPacket=0;
+    private boolean whenNextPacketSuccess = true;
+    private long intervalBetweenPacket = 0;
+
     public static BleManager getInstance() {
         return BleManagerHolder.sBleManager;
     }
@@ -585,6 +586,26 @@ public class BleManager {
      * @param uuid_service
      * @param uuid_write
      * @param data
+     * @param intervalBetweenPacket
+     * @param callback
+     */
+    public void write(BleDevice bleDevice,
+                      String uuid_service,
+                      String uuid_write,
+                      byte[] data,
+                      long intervalBetweenPacket,
+                      BleWriteCallback callback) {
+        this.intervalBetweenPacket = intervalBetweenPacket;
+        write(bleDevice, uuid_service, uuid_write, data, true, callback);
+    }
+
+    /**
+     * write
+     *
+     * @param bleDevice
+     * @param uuid_service
+     * @param uuid_write
+     * @param data
      * @param split
      * @param callback
      */
@@ -595,7 +616,7 @@ public class BleManager {
                       boolean split,
                       BleWriteCallback callback) {
 
-        write(bleDevice, uuid_service, uuid_write, data, split, true, 1000, callback);
+        write(bleDevice, uuid_service, uuid_write, data, split, true, intervalBetweenPacket, callback);
     }
 
     /**

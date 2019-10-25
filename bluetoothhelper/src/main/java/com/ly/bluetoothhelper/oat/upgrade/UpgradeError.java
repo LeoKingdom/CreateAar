@@ -8,6 +8,7 @@ import android.annotation.SuppressLint;
 import android.support.annotation.IntDef;
 import android.support.annotation.IntRange;
 
+import com.ly.bluetoothhelper.oat.annotation.ErrorTypes;
 import com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes;
 import com.ly.bluetoothhelper.oat.upgrade.packet.VMUException;
 
@@ -23,7 +24,8 @@ public class UpgradeError {
     /**
      * <p>The type of the error.</p>
      */
-    private final @ErrorTypes int mError;
+    private final @ErrorTypes
+    int mError;
     /**
      * <p>If the error occurs on the board, the ReturnCode it provided.</p>
      */
@@ -46,10 +48,10 @@ public class UpgradeError {
     }
 
     /**
-     * <p>To build a {@link UpgradeError.ErrorTypes#RECEIVED_ERROR_FROM_BOARD RECEIVED_ERROR_FROM_BOARD} VMU error
+     * <p>To build a {@link ErrorTypes#RECEIVED_ERROR_FROM_BOARD RECEIVED_ERROR_FROM_BOARD} VMU error
      * object.</p>
      * <p>As it is not possible to have a second constructor with only one int parameter even with a different
-     * annotation constraint - the {@link com.qualcomm.libraries.vmupgrade.codes.ReturnCodes.Enum ReturnCodes enumeration}
+     * annotation constraint - the {@link com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes.Enum ReturnCodes enumeration}
      * instead of {@link ErrorTypes ErrorTypes enumeration}. This method constraints the choice of the type to
      * {@link ErrorTypes#RECEIVED_ERROR_FROM_BOARD RECEIVED_ERROR_FROM_BOARD} only.</p>
      *
@@ -68,7 +70,7 @@ public class UpgradeError {
     }
 
     /**
-     * <p>To build a {@link UpgradeError.ErrorTypes#EXCEPTION EXCEPTION} VMU Error object.</p>
+     * <p>To build a {@link ErrorTypes#EXCEPTION EXCEPTION} VMU Error object.</p>
      *
      * @param exception
      *         The VMUException which occurs during the upgrade process.
@@ -91,7 +93,7 @@ public class UpgradeError {
     /**
      * <p>To get the return code the board sent.</p> <p>If the error type is not {@link
      * ErrorTypes#RECEIVED_ERROR_FROM_BOARD RECEIVED_ERROR_FROM_BOARD} the returned error is {@link
-     * com.qualcomm.libraries.vmupgrade.codes.ReturnCodes.Enum#UNKNOWN_ERROR UNKNOWN_ERROR}.</p>
+     * com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes.Enum#UNKNOWN_ERROR UNKNOWN_ERROR}.</p>
      *
      * @return the return code associated with this VMU Error.
      */
@@ -109,44 +111,7 @@ public class UpgradeError {
         return mException;
     }
 
-    /**
-     * <p>All different errors which can occur when using the vumpgrade library.</p>
-     */
-    @IntDef(flag = true, value = {ErrorTypes.ERROR_BOARD_NOT_READY, ErrorTypes.WRONG_DATA_PARAMETER, ErrorTypes
-            .RECEIVED_ERROR_FROM_BOARD, ErrorTypes.EXCEPTION, ErrorTypes.AN_UPGRADE_IS_ALREADY_PROCESSING,
-            ErrorTypes.NO_FILE })
-    @Retention(RetentionPolicy.SOURCE)
-    @SuppressLint("ShiftFlags") // values are more readable this way
-    public @interface ErrorTypes {
 
-        /**
-         * <p>This error occurs when there is an attempt to start the upgrade but the board is not ready to process.</p>
-         */
-        int ERROR_BOARD_NOT_READY = 1;
-        /**
-         * <p>This error occurs when a received VMU packet from the board does not match the expected data: too much
-         * information, not enough, etc.</p>
-         */
-        int WRONG_DATA_PARAMETER = 2;
-        /**
-         * <p>This error occurs when the board notifies that an error or a warning occurs internally during its upgrade
-         * process.</p>
-         */
-        int RECEIVED_ERROR_FROM_BOARD = 3;
-        /**
-         * <p>This error is reported when a {@link VMUException VMUException} occurs during the process.</p>
-         */
-        int EXCEPTION = 4;
-        /**
-         * <p>This error occurs when there is an attempt to start the upgrade but the VMUManager is already processing an upgrade
-         * .</p>
-         */
-        int AN_UPGRADE_IS_ALREADY_PROCESSING = 5;
-        /**
-         * <p>This error occurs when the file to upload is empty or does not exist.</p>
-         */
-        int NO_FILE = 6;
-    }
 
     /**
      * <p>To get a human readable information for this error object.</p>

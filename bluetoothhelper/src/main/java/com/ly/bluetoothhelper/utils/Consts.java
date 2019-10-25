@@ -34,7 +34,7 @@ public final class Consts {
     public static final String DATE_FORMAT = "HH:mm - d MMM yyyy";
 
     /**
-     * The code to use for the methods {@link android.app.Activity#onActivityResult(int, int, Intent) onActivityResult}
+     *
      * and {@link Activity#startActivityForResult(Intent, int) startActivityForResult} when requesting to enable
      * the device Bluetooth.
      */
@@ -79,5 +79,7 @@ public final class Consts {
          */
         public static final String EXTRA_SERVICE_FILTER = "EXTRA_SERVICE_FILTER";
     }
+
+    public static long betweenTimes=200;
 
 }

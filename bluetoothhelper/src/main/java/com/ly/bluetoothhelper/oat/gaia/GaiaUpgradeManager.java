@@ -6,6 +6,9 @@ package com.ly.bluetoothhelper.oat.gaia;
 
 import android.util.Log;
 
+import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
+import com.ly.bluetoothhelper.oat.annotation.Enums;
+import com.ly.bluetoothhelper.oat.annotation.ErrorTypes;
 import com.ly.bluetoothhelper.oat.gaia.exceptions.GaiaException;
 import com.ly.bluetoothhelper.oat.gaia.packets.GaiaPacket;
 import com.ly.bluetoothhelper.oat.gaia.packets.GaiaPacketBLE;
@@ -118,7 +121,7 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
      *
      * @return The corresponding ResumePoint. If there is no ongoing upgrade the given ResumePoint is not accurate.
      */
-    public @ResumePoints.Enum int getResumePoint() {
+    public @Enums int getResumePoint() {
         return mUpgradeManager.getResumePoint();
     }
 
@@ -131,7 +134,7 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
      * @param confirmation
      *              To know if the UpgradeManager should confirm the process to continue.
      */
-    public void sendConfirmation(@UpgradeManager.ConfirmationType int type, boolean confirmation) {
+    public void sendConfirmation(@ConfirmationType int type, boolean confirmation) {
         if (mUpgradeManager.isUpgrading()) {
             mUpgradeManager.sendConfirmation(type, confirmation);
         }
@@ -216,13 +219,13 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
     public void onUpgradeProcessError(UpgradeError error) {
         mListener.onUpgradeError(error);
         switch (error.getError()) {
-            case UpgradeError.ErrorTypes.AN_UPGRADE_IS_ALREADY_PROCESSING:
-            case UpgradeError.ErrorTypes.NO_FILE:
+            case ErrorTypes.AN_UPGRADE_IS_ALREADY_PROCESSING:
+            case ErrorTypes.NO_FILE:
                 break;
-            case UpgradeError.ErrorTypes.ERROR_BOARD_NOT_READY:
-            case UpgradeError.ErrorTypes.EXCEPTION:
-            case UpgradeError.ErrorTypes.RECEIVED_ERROR_FROM_BOARD:
-            case UpgradeError.ErrorTypes.WRONG_DATA_PARAMETER:
+            case ErrorTypes.ERROR_BOARD_NOT_READY:
+            case ErrorTypes.EXCEPTION:
+            case ErrorTypes.RECEIVED_ERROR_FROM_BOARD:
+            case ErrorTypes.WRONG_DATA_PARAMETER:
                 mUpgradeManager.abortUpgrade();
                 break;
         }
@@ -230,7 +233,7 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
 
     // implements UpgradeManager.UpgradeManagerListener
     @Override
-    public void onResumePointChanged(@ResumePoints.Enum int point) {
+    public void onResumePointChanged(@Enums int point) {
         mListener.onResumePointChanged(point);
     }
 
@@ -249,7 +252,7 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
 
     // implements UpgradeManager.UpgradeManagerListener
     @Override
-    public void askConfirmationFor(@UpgradeManager.ConfirmationType int type) {
+    public void askConfirmationFor(@ConfirmationType int type) {
         mListener.askConfirmationFor(type);
     }
 
@@ -564,15 +567,15 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
          * @param point
          *              the new step reaches by the process.
          */
-        void onResumePointChanged(@ResumePoints.Enum int point);
+        void onResumePointChanged(@Enums int point);
 
         /**
          * <p>This method informs the listener that an error occurs during the upgrade process.</p>
          * <p>For the following error types, the upgrade is automatically aborted:
          * <ul>
-         *     <li>{@link UpgradeError.ErrorTypes#EXCEPTION EXCEPTION}</li>
-         *     <li>{@link UpgradeError.ErrorTypes#RECEIVED_ERROR_FROM_BOARD RECEIVED_ERROR_FROM_BOARD}</li>
-         *     <li>{@link UpgradeError.ErrorTypes#WRONG_DATA_PARAMETER WRONG_DATA_PARAMETER}</li>
+         *     <li>{@link ErrorTypes#EXCEPTION EXCEPTION}</li>
+         *     <li>{@link ErrorTypes#RECEIVED_ERROR_FROM_BOARD RECEIVED_ERROR_FROM_BOARD}</li>
+         *     <li>{@link ErrorTypes#WRONG_DATA_PARAMETER WRONG_DATA_PARAMETER}</li>
          * </ul></p>
          *
          * @param error
@@ -583,7 +586,7 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
         /**
          * <p>This method is called when there is a progress during the upload of the file on the device.</p>
          * <p>This method is used when the actual step is
-         * {@link com.ly.bluetoothhelper.oat.upgrade.codes.ResumePoints.Enum#DATA_TRANSFER DATA_TRANSFER}.</p>
+         * {@link Enums#DATA_TRANSFER DATA_TRANSFER}.</p>
          *
          * @param progress
          *          A progress object which contains the percentage of how many bytes of the file have been sent to
@@ -614,7 +617,7 @@ public class GaiaUpgradeManager extends GaiaManager implements UpgradeManager.Up
          * <p>To inform the manager about its decision, the listener has to call the
          * {@link GaiaUpgradeManager#sendConfirmation(int, boolean) sendConfirmation} method.</p>
          */
-        void askConfirmationFor(@UpgradeManager.ConfirmationType int type);
+        void askConfirmationFor(@ConfirmationType int type);
 
         /**
          * <p>This method is called when the {@link GaiaUpgradeManager GaiaUpgradeManager} knows that all commands

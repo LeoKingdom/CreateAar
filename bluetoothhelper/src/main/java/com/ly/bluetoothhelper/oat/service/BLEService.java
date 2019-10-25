@@ -22,6 +22,7 @@ import android.support.annotation.IntDef;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.ly.bluetoothhelper.oat.annotation.State;
 import com.ly.bluetoothhelper.oat.ble.BLEUtils;
 import com.ly.bluetoothhelper.oat.ble.Characteristics;
 import com.ly.bluetoothhelper.oat.ble.Request;
@@ -103,7 +104,8 @@ public abstract class BLEService extends Service {
     /**
      * <p>The connection state of this service with a Bluetooth device.</p>
      */
-    private @State int mConnectionState = State.DISCONNECTED;
+    private @State
+    int mConnectionState = State.DISCONNECTED;
     /**
      * <p>The queue of pending transmissions</p>
      */
@@ -187,17 +189,7 @@ public abstract class BLEService extends Service {
 
     // ====== ENUM =================================================================================
 
-    /**
-     * <p>The possible values for the Bluetooth connection state of this service.</p>
-     */
-    @IntDef({ State.CONNECTED, State.DISCONNECTED, State.CONNECTING, State.DISCONNECTING })
-    @Retention(RetentionPolicy.SOURCE)
-    public @interface State {
-        int DISCONNECTED = 0;
-        int CONNECTING = 1;
-        int CONNECTED = 2;
-        int DISCONNECTING = 3;
-    }
+
 
 
     // ====== PROTECTED METHODS =======================================================================
