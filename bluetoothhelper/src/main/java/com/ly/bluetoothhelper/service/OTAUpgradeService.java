@@ -16,12 +16,11 @@ import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.beans.TransfirmDataBean;
-import com.ly.bluetoothhelper.callbacks.BaseCallback;
 import com.ly.bluetoothhelper.callbacks.DataCallback;
 import com.ly.bluetoothhelper.callbacks.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.ProgressCallback;
 import com.ly.bluetoothhelper.callbacks.WriteCallback;
-import com.ly.bluetoothhelper.helper.BLEHelper;
+import com.ly.bluetoothhelper.helper.BleConnectHelper;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
 import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.DataPacketUtils;
@@ -49,7 +48,7 @@ import java.util.Objects;
  */
 public class OTAUpgradeService extends Service {
 
-    private BLEHelper bleConnectHelper; //蓝牙操作辅助类
+    private BleConnectHelper bleConnectHelper; //蓝牙操作辅助类
     private BluetoothHelper bluetoothBaseHelper; //蓝牙操作类
     private BleDevice bleDevice;
     private byte[] initialTotalBytes;
@@ -386,12 +385,11 @@ public class OTAUpgradeService extends Service {
                 }
             }
         });
-
     }
 
 
     private void initHelper() {
-        bleConnectHelper = BLEHelper.getInstance().getInstance().init(getApplication(), 0);
+        bleConnectHelper = BleConnectHelper.getInstance().init(getApplication(), 0);
         bluetoothBaseHelper = new BluetoothHelper(getApplication(), 0);
         bluetoothBaseHelper.initUuid(null,
                 "00005500-d102-11e1-9b23-00025b00a5a5",
@@ -535,16 +533,18 @@ public class OTAUpgradeService extends Service {
                     EventBus.getDefault().post(msgBean);
                 }
             });
-            bleConnectHelper.setDisconnectListener((bleDevice, bluetoothGatt) -> {
-                //断开连接,记录数据传输情况
-                isReconnect = true;
-                if (currentFrame < totalFrame) {
-                    Log.e("cache---", currentBin + "/" + totalFrame + "/" + currentFrame + "/" + currentPacket);
-                    String spCache = currentBin + "," + totalFrame + "," + currentFrame + "," + tp + "," + currentPacket;
-                    SharePreferenceUtils.setValue(this, "data-" + macAddress, spCache); //记录当前设备传输情况
+            bleConnectHelper.setDisconnectListener((isActiveDisConnect, bleDevice1, gatt) -> {
+                if (!isActiveDisConnect) {
+                    //断开连接,记录数据传输情况
+                    isReconnect = true;
+                    if (currentFrame < totalFrame) {
+                        Log.e("cache---", currentBin + "/" + totalFrame + "/" + currentFrame + "/" + currentPacket);
+                        String spCache = currentBin + "," + totalFrame + "," + currentFrame + "," + tp + "," + currentPacket;
+                        SharePreferenceUtils.setValue(this, "data-" + macAddress, spCache); //记录当前设备传输情况
+                    }
+                    MsgBean msgBean = new MsgBean(ActionUtils.ACTION_DISCONNECT_S, bleDevice);
+                    EventBus.getDefault().post(msgBean);
                 }
-                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_DISCONNECT_S, bleDevice);
-                EventBus.getDefault().post(msgBean);
             });
             bleConnectHelper.setReconnectSuccessListener((bleDevice -> {
                 //若重新连接上,尚未确定是继续传输还是???,暂定为关闭service,若下次启动,将从断位开始
