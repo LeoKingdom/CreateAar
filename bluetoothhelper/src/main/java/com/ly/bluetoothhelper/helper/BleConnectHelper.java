@@ -13,7 +13,9 @@ import com.clj.fastble.exception.BleException;
 import com.clj.fastble.utils.BleLog;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
@@ -38,19 +40,24 @@ public class BleConnectHelper {
     private static BleConnectHelper bleConnectHelper;
     private BleManager bleManager;
     private BluetoothHelper bluetoothHelper;
-    private Map<String, BleDevice> connDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是BleDevice
-    private Map<String, Integer> connDeviceRssiMap = new HashMap<>();//第一个参数是address,第二个参数是rrsi值
-    private Map<String, String> reconnDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是name
+    private Map<String, BleDevice> connDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是BleDevice，已连接的设备
+    private Map<String, Integer> readRssiMap = new HashMap<>();//第一个参数是address,第二个参数是rrsi值，读rssi的设备
+    private Map<String, String> reconnDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是name,需要重连的设备
+    private List<String> needConnectMap = new ArrayList<>();//需要连接的设备
     private ReconnHandler reConnHandler = new ReconnHandler(this);
     private Timer timer;
     private TimerTask timerTask;
-    private double maxDistance=10D;
+    private double maxDistance;
 
     private BleConnectHelper() {
     }
 
     public Map<String, String> getReconnDeviceMap() {
         return reconnDeviceMap;
+    }
+
+    public Map<String, Integer> getReadRssiMap() {
+        return readRssiMap;
     }
 
     /**
@@ -83,13 +90,13 @@ public class BleConnectHelper {
      *
      * @param application
      * @param reconnectCount 重连次数
-     * @param maxDistance 最大连接距离
+     * @param maxDistance    最大连接距离
      * @return
      */
-    public BleConnectHelper init(Application application, int reconnectCount,double maxDistance) {
+    public BleConnectHelper init(Application application, int reconnectCount, double maxDistance) {
         bluetoothHelper = new BluetoothHelper(application, reconnectCount);
         bleManager = bluetoothHelper.getBleManager();
-        this.maxDistance=maxDistance;
+        this.maxDistance = maxDistance;
         return this;
     }
 
@@ -117,6 +124,7 @@ public class BleConnectHelper {
      * @param name    蓝牙名称
      */
     public void openVirtualLeash(boolean isFuzzy, String address, String name) {
+        needConnectMap.add(address);//需要连接的设备
         removeConnectDevice(address);//先移除掉，因为重新开始了
         removeReConnectDevice(address);//先移除掉，因为重新开始了
         bluetoothHelper.setCharacteristicChangeListener((gatt, characteristic) -> getCharacteristicChange(gatt, characteristic));
@@ -133,7 +141,7 @@ public class BleConnectHelper {
                 BleLog.e("device was found: " + bleDevice);
                 getScanFinishNext(bleDevice);
                 checkRssi(bleDevice, address, name);//检查rssi
-                if (bleDevice == null) {//如果没扫描到，过段时间继续扫描
+                if (bleDevice == null && needConnectMap.contains(address)) {//如果没扫描到，过段时间继续扫描
                     addReConnectDevice(address, name);//加入重连列表中
                     startReconnect(address, bleManager.getReConnectCount() * bleManager.getReConnectInterval());//重新连接
                 }
@@ -166,6 +174,9 @@ public class BleConnectHelper {
                 if (!isActiveDis) {//不是主动断开的
                     addReConnectDevice(device.getMac(), device.getName());//加入重连列表中
                     startReconnect(device.getMac(), 100);//开启重连
+                } else {//主动断开连接的话，移除rssimap和reconnectmap
+                    removeReConnectDevice(device.getMac());
+                    removeRssiDevice(device.getMac());
                 }
             }
 
@@ -186,15 +197,15 @@ public class BleConnectHelper {
      */
     private void checkRssi(BleDevice bleDevice, String address, String name) {
         if (bleDevice == null) {//如果扫描不到了
-            if (connDeviceRssiMap.containsKey(address)) {//之前有存rssi的话，说明之前扫描到过
-                Integer valueRssi = connDeviceRssiMap.get(address);
+            if (readRssiMap.containsKey(address)) {//之前有存rssi的话，说明之前扫描到过
+                Integer valueRssi = readRssiMap.get(address);
                 double distance = getDistance(valueRssi);//判断距离
                 if (distance > maxDistance) {//如果距离大于10米了，那就走远了
                     getDeviceAwayNext(address, name);
                 }
             }
         } else {//说明还能扫描到
-            connDeviceRssiMap.put(bleDevice.getMac(), bleDevice.getRssi());
+            readRssiMap.put(bleDevice.getMac(), bleDevice.getRssi());
         }
     }
 
@@ -213,7 +224,7 @@ public class BleConnectHelper {
                             @Override
                             public void onRemoteRssi(int rssi) {
                                 Log.e("rssi----", rssi + "/" + getDistance(rssi));
-                                connDeviceRssiMap.put(device.getKey(), rssi);
+                                readRssiMap.put(device.getKey(), rssi);
                             }
 
                             @Override
@@ -253,6 +264,7 @@ public class BleConnectHelper {
         double power = (iRssi - 72) / (10 * 2.0);
         return Math.pow(10, power);
     }
+
 
     /**
      * 开始重连
@@ -321,7 +333,7 @@ public class BleConnectHelper {
      *
      * @param address 蓝牙地址
      */
-    private void removeReConnectDevice(String address) {
+    public void removeReConnectDevice(String address) {
         reconnDeviceMap.remove(address);
     }
 
@@ -331,7 +343,7 @@ public class BleConnectHelper {
      * @param address 蓝牙地址
      * @return
      */
-    private boolean isReConnectDevice(String address) {
+    public boolean isReConnectDevice(String address) {
         return reconnDeviceMap.containsKey(address);
     }
 
@@ -341,7 +353,7 @@ public class BleConnectHelper {
      * @param address   蓝牙地址
      * @param bleDevice 蓝牙设备
      */
-    private void addConnectDevice(String address, BleDevice bleDevice) {
+    public void addConnectDevice(String address, BleDevice bleDevice) {
         connDeviceMap.put(address, bleDevice);
     }
 
@@ -350,10 +362,20 @@ public class BleConnectHelper {
      *
      * @param address 蓝牙地址
      */
-    private void removeConnectDevice(String address) {
+    public void removeConnectDevice(String address) {
         connDeviceMap.remove(address);
     }
 
+    public void removeRssiDevice(String address) {
+        readRssiMap.remove(address);
+    }
+
+    public void removeDevice(String mac) {
+        needConnectMap.remove(mac);
+        readRssiMap.remove(mac);
+        connDeviceMap.remove(mac);
+        reconnDeviceMap.remove(mac);
+    }
     //----------------对外listeners----------------------
 
     /**

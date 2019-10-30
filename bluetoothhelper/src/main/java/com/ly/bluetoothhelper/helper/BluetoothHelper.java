@@ -25,7 +25,6 @@ import com.clj.fastble.data.BleDevice;
 import com.clj.fastble.exception.BleException;
 import com.clj.fastble.scan.BleScanRuleConfig;
 import com.clj.fastble.utils.BleLog;
-import com.ly.bluetoothhelper.utils.TransformUtils;
 import com.ly.bluetoothhelper.utils.Utils;
 
 import java.util.List;
@@ -76,7 +75,7 @@ public class BluetoothHelper {
         if (bleAdapter != null) {
             Set<BluetoothDevice> deviceList = bleAdapter.getBondedDevices();
             for (BluetoothDevice device : deviceList) {
-//                Log.e("bond-----",device.getAddress()+"/"+macAddress);
+                //                Log.e("bond-----",device.getAddress()+"/"+macAddress);
                 if (macAddress.equals(device.getAddress())) {
                     Utils.unpairDevice(device);
                     return true;
@@ -158,6 +157,7 @@ public class BluetoothHelper {
         return BleManager.getInstance().isBlueEnable();
     }
 
+
     /*----------------------------------蓝牙和gps的回调start------------------------------*/
     // 蓝牙和gps打开回调
     public interface OpenListener {
@@ -201,6 +201,13 @@ public class BluetoothHelper {
      */
     public static void closeBle() {
         BleManager.getInstance().disableBluetooth();
+    }
+
+    /**
+     * 扫描取消
+     */
+    public static void cancelScan() {
+        BleManager.getInstance().cancelScan();
     }
 
     /**
@@ -382,12 +389,6 @@ public class BluetoothHelper {
         });
     }
 
-    /**
-     * 扫描取消
-     */
-    public void cancelScan() {
-        bleManager.cancelScan();
-    }
 
     /**
      * 连接设备
@@ -664,12 +665,12 @@ public class BluetoothHelper {
     /**
      * 写数据的回调,默认大于20字节时，会分割数据，大于20字节直接是默认写完一次后回调了onCharacteristicWrite后，就继续发下一个数据了。
      *
-     * @param bleDevice 蓝牙设备
+     * @param bleDevice           蓝牙设备
      * @param intervalBetweenTime 两包之间间隔时间  ms
-     * @param dates     传输的字节数据
-     * @param listener  监听回调
+     * @param dates               传输的字节数据
+     * @param listener            监听回调
      */
-    public void write(BleDevice bleDevice,long intervalBetweenTime, byte[] dates, WriteListener listener) {
+    public void write(BleDevice bleDevice, long intervalBetweenTime, byte[] dates, WriteListener listener) {
         BleManager.getInstance().write(
                 bleDevice,
                 uuidHelper.getServiceUuid(),
