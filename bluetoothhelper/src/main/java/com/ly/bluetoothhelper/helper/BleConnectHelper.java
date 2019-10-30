@@ -44,6 +44,7 @@ public class BleConnectHelper {
     private ReconnHandler reConnHandler = new ReconnHandler(this);
     private Timer timer;
     private TimerTask timerTask;
+    private double maxDistance=10D;
 
     private BleConnectHelper() {
     }
@@ -68,11 +69,27 @@ public class BleConnectHelper {
      * 初始化蓝牙配置
      *
      * @param application
+     * @param reconnectCount 重连次数
      * @return
      */
     public BleConnectHelper init(Application application, int reconnectCount) {
         bluetoothHelper = new BluetoothHelper(application, reconnectCount);
         bleManager = bluetoothHelper.getBleManager();
+        return this;
+    }
+
+    /**
+     * 初始化蓝牙配置
+     *
+     * @param application
+     * @param reconnectCount 重连次数
+     * @param maxDistance 最大连接距离
+     * @return
+     */
+    public BleConnectHelper init(Application application, int reconnectCount,double maxDistance) {
+        bluetoothHelper = new BluetoothHelper(application, reconnectCount);
+        bleManager = bluetoothHelper.getBleManager();
+        this.maxDistance=maxDistance;
         return this;
     }
 
@@ -172,7 +189,7 @@ public class BleConnectHelper {
             if (connDeviceRssiMap.containsKey(address)) {//之前有存rssi的话，说明之前扫描到过
                 Integer valueRssi = connDeviceRssiMap.get(address);
                 double distance = getDistance(valueRssi);//判断距离
-                if (distance > 10) {//如果距离大于10米了，那就走远了
+                if (distance > maxDistance) {//如果距离大于10米了，那就走远了
                     getDeviceAwayNext(address, name);
                 }
             }
@@ -283,7 +300,7 @@ public class BleConnectHelper {
         if (reconnDeviceMap.size() > 0) {//遍历需要重连的设备
             for (Map.Entry<String, String> entry : keys) {
                 if (entry.getKey().equals(key)) {
-                    openVirtualLeash(false, entry.getKey(), entry.getValue());
+                    openVirtualLeash(true, entry.getKey(), entry.getValue());
                 }
             }
         }

@@ -812,7 +812,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             AssetManager assetManager = getAssets();
             String[] assetsList = assetManager.list("");
             for (int i = assetsList.length - 1; i >= 0; i--) {
-                if (assetsList[i].startsWith("dict") || assetsList[i].startsWith("clade")) {
+                if (assetsList[i].endsWith(".patch")) {
                     fileNameList.add(assetsList[i]);
                 }
                 Log.e("name---", assetsList[i] + "/" + fileNameList.size());

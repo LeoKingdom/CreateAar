@@ -267,14 +267,8 @@ public class DataPacketUtils {
      * @return
      */
     public static byte[] losePackets(byte[] data, byte[] responseByte) {
-        List<byte[]> losePacketList = new ArrayList<>();
-        int totalFrame = TransformUtils.byte2Int(responseByte[3]);
-        int currentFrame = TransformUtils.byte2Int(responseByte[4]);
-//        byte[] currentFrameBytes = sortEachFrame(data, currentFrame, totalFrame);
         byte[] currentFrameBytes = data;
         byte[] lostPacketBytes = null;
-        //总包数
-        int length = data.length % 20 == 0 ? (data.length / 20) : (data.length / 20 + 1);
         int resLength = responseByte.length;
         byte loseCurrentByte = responseByte[resLength - 1];
         byte loseTotalByte = responseByte[7];
@@ -286,8 +280,6 @@ public class DataPacketUtils {
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
             byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
             lostPacketBytes = onePacket;
-
-//            losePacketList.add(onePacket);
         } else if (loseTotalByte == (byte) 0x02) {
             //丢两包,responseByte长度为10
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
@@ -295,8 +287,6 @@ public class DataPacketUtils {
             byte[] onePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex - 1) * 20, 20);
             byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex1 - 1) * 20, 20);
             lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket);
-//            losePacketList.add(onePacket);
-//            losePacketList.add(twoPacket);
         } else if (loseTotalByte == (byte) 0x03) {
             //丢三包,responseByte长度为11
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
@@ -306,9 +296,6 @@ public class DataPacketUtils {
             byte[] twoPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex1 - 1) * 20, 20);
             byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex2 - 1) * 20, 20);
             lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket, threePacket);
-//            losePacketList.add(onePacket);
-//            losePacketList.add(twoPacket);
-//            losePacketList.add(threePacket);
         } else if (loseTotalByte == (byte) 0x04) {
             //丢四包,responseByte长度为12
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
@@ -320,10 +307,6 @@ public class DataPacketUtils {
             byte[] threePacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex2 - 1) * 20, 20);
             byte[] firthPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex3 - 1) * 20, 20);
             lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket, threePacket, firthPacket);
-//            losePacketList.add(onePacket);
-//            losePacketList.add(twoPacket);
-//            losePacketList.add(threePacket);
-//            losePacketList.add(firthPacket);
         } else if (loseTotalByte == (byte) 0x05) {
             //丢五包,responseByte长度为13
             int losePacketIndex = TransformUtils.byte2Int(responseByte[8]);
@@ -337,18 +320,11 @@ public class DataPacketUtils {
             byte[] firthPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex3 - 1) * 20, 20);
             byte[] fifthPacket = TransformUtils.subBytes(currentFrameBytes, (losePacketIndex4 - 1) * 20, 20);
             lostPacketBytes = TransformUtils.combineArrays(onePacket, twoPacket, threePacket, firthPacket, fifthPacket);
-//            losePacketList.add(onePacket);
-//            losePacketList.add(twoPacket);
-//            losePacketList.add(threePacket);
-//            losePacketList.add(firthPacket);
-//            losePacketList.add(fifthPacket);
-        } else if (loseTotalByte == (byte) 0xFF) {
-            //丢五包以上,responseByte长度为9
+        } else if (loseTotalByte == (byte) 0xFF || (loseTotalByte == (byte) 0x00 && loseCurrentByte == (byte) 0x01)) {
+            //丢五包以上或者校验错误,responseByte长度为9
             return new byte[]{loseCurrentByte};
         }
-        if (lostPacketBytes != null) {
-            Log.e("losePacket----", TransformUtils.bytesToHexString(lostPacketBytes));
-        }
+
         return lostPacketBytes;
     }
 }
