@@ -13,9 +13,8 @@ import com.clj.fastble.exception.BleException;
 import com.clj.fastble.utils.BleLog;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
@@ -43,7 +42,7 @@ public class BleConnectHelper {
     private Map<String, BleDevice> connDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是BleDevice，已连接的设备
     private Map<String, Integer> readRssiMap = new HashMap<>();//第一个参数是address,第二个参数是rrsi值，读rssi的设备
     private Map<String, String> reconnDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是name,需要重连的设备
-    private List<String> needConnectMap = new ArrayList<>();//需要连接的设备
+    private Set<String> needConnectMap = new HashSet<>();//需要连接的设备
     private ReconnHandler reConnHandler = new ReconnHandler(this);
     private Timer timer;
     private TimerTask timerTask;
@@ -143,7 +142,7 @@ public class BleConnectHelper {
                 checkRssi(bleDevice, address, name);//检查rssi
                 if (bleDevice == null && needConnectMap.contains(address)) {//如果没扫描到，过段时间继续扫描
                     addReConnectDevice(address, name);//加入重连列表中
-                    startReconnect(address, bleManager.getReConnectCount() * bleManager.getReConnectInterval());//重新连接
+                    startReconnect(address, 2000);//重新连接
                 }
             }
 
@@ -151,7 +150,7 @@ public class BleConnectHelper {
             public void onConnectFailed(BleDevice bleDevice, String description) {
                 getConnectFailNext(bleDevice, description);
                 addReConnectDevice(bleDevice.getMac(), bleDevice.getName());//加入重连列表中
-                startReconnect(bleDevice.getMac(), bleManager.getReConnectCount() * bleManager.getReConnectInterval());//重新连接
+                startReconnect(bleDevice.getMac(), 2000);//重新连接
             }
 
             @Override
