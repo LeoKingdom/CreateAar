@@ -15,6 +15,7 @@ import android.util.Log;
 
 import com.clj.fastble.BleManager;
 import com.clj.fastble.callback.BleGattCallback;
+import com.clj.fastble.callback.BleMtuChangedCallback;
 import com.clj.fastble.callback.BleNotifyCallback;
 import com.clj.fastble.callback.BleReadCallback;
 import com.clj.fastble.callback.BleRssiCallback;
@@ -492,9 +493,33 @@ public class BluetoothHelper {
     }
 
 
+    public void setMTU(BleDevice device,int mtu,MTUSetListener mtuSetListener){
+        bleManager.setMtu(device, mtu, new BleMtuChangedCallback() {
+            @Override
+            public void onSetMTUFailure(BleException exception) {
+                if (mtuSetListener!=null){
+                    mtuSetListener.setFail(exception.getDescription());
+                }
+            }
+
+            @Override
+            public void onMtuChanged(int mtu) {
+                if (mtuSetListener!=null){
+                    mtuSetListener.setSuccess(mtu);
+                }
+            }
+        });
+    }
+
+
     /**
      * 对外暴露的接口,处理蓝牙的细分回调,如连接,扫描等操作 START
      */
+
+    public interface MTUSetListener{
+        void setFail(String err);
+        void setSuccess(int mtu);
+    }
 
     /*----------------------------------扫描并连接的回调 start------------------------------*/
     public interface BleHandleListener {

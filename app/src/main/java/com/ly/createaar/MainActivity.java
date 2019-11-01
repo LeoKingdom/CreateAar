@@ -31,6 +31,7 @@ import com.ly.bluetoothhelper.callbacks.DataCallback;
 import com.ly.bluetoothhelper.callbacks.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.ProgressCallback;
 import com.ly.bluetoothhelper.callbacks.WriteCallback;
+import com.ly.bluetoothhelper.helper.BluetoothHelper;
 import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
 import com.ly.bluetoothhelper.oat.annotation.Enums;
 import com.ly.bluetoothhelper.oat.annotation.ErrorTypes;
@@ -522,7 +523,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         otaBtn=findViewById(R.id.ot_btn);
         gtBtn=findViewById(R.id.gt_btn);
         TextView txtTagProgress = progressDialogWidget.getProgressNumTv();
-        decimalFormat = new DecimalFormat("#.00");
+        decimalFormat = new DecimalFormat("0.0000");
 //        combinePacket();
         vmUpgradeDialog = VMUpgradeDialog.newInstance(this);
         initReconnectionDialog();
@@ -536,15 +537,16 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             }
         });
         gtBtn.setOnClickListener(v -> {
-            if (bleDevice==null){
-                toast("设备未连接");
-            }else {
-                loadingWidget.hide();
-                progressDialogWidget.hide();
-                File file = new File(getCacheDir(), "mkn0_bt_uart_v03.bin");
-                otaUpgradeService1.startUpgrade(file);
-                showUpgradeDialog(true);
-            }
+
+//            if (bleDevice==null){
+//                toast("设备未连接");
+//            }else {
+//                loadingWidget.hide();
+//                progressDialogWidget.hide();
+//                File file = new File(getCacheDir(), "mkn0_bt_uart_v03.bin");
+//                otaUpgradeService1.startUpgrade(file);
+//                showUpgradeDialog(true);
+//            }
         });
     }
 
