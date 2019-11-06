@@ -115,19 +115,23 @@ public class BleConnectHelper {
         return bleConnectHelper;
     }
 
+    public void openVirtualLeash(boolean isFuzzzy,String address,String name) {
+        needConnectMap.add(address);
+        openVirtualLeash(address, name);
+    }
+
+
     /**
      * 扫描并连接
      *
-     * @param isFuzzy 是否模糊搜索
      * @param address 蓝牙地址
      * @param name    蓝牙名称
      */
-    public void openVirtualLeash(boolean isFuzzy, String address, String name) {
-        needConnectMap.add(address);//需要连接的设备
+    public void openVirtualLeash(String address, String name) {
         removeConnectDevice(address);//先移除掉，因为重新开始了
         removeReConnectDevice(address);//先移除掉，因为重新开始了
         bluetoothHelper.setCharacteristicChangeListener((gatt, characteristic) -> getCharacteristicChange(gatt, characteristic));
-        bluetoothHelper.scanAndConnect(isFuzzy, address, name, new BluetoothHelper.BleHandleListener() {
+        bluetoothHelper.scanAndConnect(true, address, name, new BluetoothHelper.BleHandleListener() {
             @Override
             public void onScanStarted(boolean success) {
                 if (success) {
@@ -138,11 +142,13 @@ public class BleConnectHelper {
             @Override
             public void onScanFinished(BleDevice bleDevice) {
                 BleLog.e("device was found: " + bleDevice);
-                getScanFinishNext(bleDevice);
-                checkRssi(bleDevice, address, name);//检查rssi
-                if (bleDevice == null && needConnectMap.contains(address)) {//如果没扫描到，过段时间继续扫描
-                    addReConnectDevice(address, name);//加入重连列表中
-                    startReconnect(address, 2000);//重新连接
+                if (needConnectMap.contains(address)) {
+                    getScanFinishNext(bleDevice);
+                    checkRssi(bleDevice, address, name);//检查rssi
+                    if (bleDevice == null) {//如果没扫描到，过段时间继续扫描
+                        addReConnectDevice(address, name);//加入重连列表中
+                        startReconnect(address, 2000);//重新连接
+                    }
                 }
             }
 
@@ -311,7 +317,7 @@ public class BleConnectHelper {
         if (reconnDeviceMap.size() > 0) {//遍历需要重连的设备
             for (Map.Entry<String, String> entry : keys) {
                 if (entry.getKey().equals(key)) {
-                    openVirtualLeash(true, entry.getKey(), entry.getValue());
+                    openVirtualLeash(entry.getKey(), entry.getValue());
                 }
             }
         }
@@ -375,6 +381,7 @@ public class BleConnectHelper {
         connDeviceMap.remove(mac);
         reconnDeviceMap.remove(mac);
     }
+
     //----------------对外listeners----------------------
 
     /**

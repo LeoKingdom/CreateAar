@@ -219,7 +219,7 @@ public class OTAUpgradeService extends Service {
                     break;
                 case ActionUtils.ACTION_DEVICE_RECONNECT:
                     isReconnect = true;
-                    bleConnectHelper.openVirtualLeash(true, macAddress, "");
+                    bleConnectHelper.openVirtualLeash(true,macAddress, "");
                     break;
             }
         }
@@ -507,7 +507,7 @@ public class OTAUpgradeService extends Service {
                 handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 3000);
             } else {
                 macAddress = intent.getStringExtra("mac_address");
-                bleConnectHelper.openVirtualLeash(true, macAddress, "");
+                bleConnectHelper.openVirtualLeash(true,macAddress, "");
             }
 
             bleConnectHelper.setConnectSuccessListener((bleDevice, gatt) -> {
