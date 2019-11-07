@@ -13,24 +13,25 @@ import android.provider.Settings;
 import android.support.v4.app.Fragment;
 import android.util.Log;
 
-import com.clj.fastble.BleManager;
-import com.clj.fastble.callback.BleGattCallback;
-import com.clj.fastble.callback.BleMtuChangedCallback;
-import com.clj.fastble.callback.BleNotifyCallback;
-import com.clj.fastble.callback.BleReadCallback;
-import com.clj.fastble.callback.BleRssiCallback;
-import com.clj.fastble.callback.BleScanAndConnectCallback;
-import com.clj.fastble.callback.BleScanCallback;
-import com.clj.fastble.callback.BleWriteCallback;
-import com.clj.fastble.data.BleDevice;
-import com.clj.fastble.exception.BleException;
-import com.clj.fastble.scan.BleScanRuleConfig;
-import com.clj.fastble.utils.BleLog;
 import com.ly.bluetoothhelper.utils.Utils;
 
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import fastble.BleManager;
+import fastble.callback.BleGattCallback;
+import fastble.callback.BleMtuChangedCallback;
+import fastble.callback.BleNotifyCallback;
+import fastble.callback.BleReadCallback;
+import fastble.callback.BleRssiCallback;
+import fastble.callback.BleScanAndConnectCallback;
+import fastble.callback.BleScanCallback;
+import fastble.callback.BleWriteCallback;
+import fastble.data.BleDevice;
+import fastble.exception.BleException;
+import fastble.scan.BleScanRuleConfig;
+import fastble.utils.BleLog;
 
 /**
  * author: LingYun
@@ -388,7 +389,9 @@ public class BluetoothHelper {
 
             @Override
             public void onScanning(BleDevice bleDevice) {
-
+                if (scanListener != null) {
+                    scanListener.onScanning(bleDevice);
+                }
             }
         });
     }
@@ -562,6 +565,7 @@ public class BluetoothHelper {
     public interface BleScanListener {
         void onScanFinished(List<BleDevice> bleDeviceList);
         void onScanStart();
+        void onScanning(BleDevice device);
         void onBleDisable();
     }
     /*----------------------------------单独扫描的回调 end------------------------------*/

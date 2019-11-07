@@ -1,6 +1,7 @@
 package com.ly.bluetoothhelper.helper;
 
-import com.clj.fastble.data.BleDevice;
+
+import fastble.data.BleDevice;
 
 /**
  * author: LingYun

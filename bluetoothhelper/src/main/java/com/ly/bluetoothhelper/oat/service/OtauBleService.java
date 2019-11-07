@@ -22,8 +22,6 @@ import android.os.Message;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.clj.fastble.data.BleDevice;
-import com.clj.fastble.exception.BleException;
 import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.beans.TransfirmDataBean;
 import com.ly.bluetoothhelper.callbacks.DataCallback;
@@ -31,6 +29,7 @@ import com.ly.bluetoothhelper.callbacks.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.ProgressCallback;
 import com.ly.bluetoothhelper.callbacks.WriteCallback;
 import com.ly.bluetoothhelper.helper.BLEHelper;
+import com.ly.bluetoothhelper.helper.BleConnectHelper;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
 import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
 import com.ly.bluetoothhelper.oat.annotation.Enums;
@@ -70,6 +69,9 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.UUID;
 
+import fastble.data.BleDevice;
+import fastble.exception.BleException;
+
 /**
  * <p>This {@link android.app.Service Service} allows to manage the Bluetooth communication with a device and can
  * work as a Start/Stop service.</p>
@@ -81,7 +83,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         BondStateReceiver.BondStateListener, RWCPManager.RWCPListener {
 
     // --------------------------add by ly--------------------------
-    private BLEHelper bluetoothHelper; //蓝牙操作辅助类
+    private BleConnectHelper bluetoothHelper; //蓝牙操作辅助类
     private BluetoothHelper bluetoothHelper1; //蓝牙操作类
     private BleDevice bleDevice;
     private byte[] initialTotalBytes;
@@ -346,7 +348,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             mTransferStartTime = 0;
         } else {
             if (bleDevice != null) {
-                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 1000);
+                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 200);
             }
         }
     }
@@ -446,7 +448,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
      */
     private void initHelper() {
         EventBus.getDefault().register(this);
-        bluetoothHelper = BLEHelper.getInstance().init(getApplication(), 0);
+        bluetoothHelper = BleConnectHelper.getInstance().init(getApplication(), 0);
         bluetoothHelper1 = new BluetoothHelper(getApplication(), 0, 10000);
         bluetoothHelper1.initUuid(null,
                 "00005500-d102-11e1-9b23-00025b00a5a5",
@@ -466,6 +468,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         }
     }
 
+    private boolean isTest = false;
+
     public Handler getHandler() {
         return handler;
     }
@@ -484,11 +488,14 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                         }
                     }
                     getDataBytes(currentBin);
+                    if (isTest) {
+                        writeBytes(initialTotalBytes);
+                    }
 //                    openNotify();
                     break;
 
                 case ActionUtils.ACTION_OTA_ORDER_I: //发送ota升级命令(含校验bin的合法性)
-                    Log.e("currentBin----", currentBin + "");
+//                    Log.e("currentBin----", currentBin + "");
                     byte[] oadOrder = OrderSetUtils.ORDER_OAD;
                     byte[] binCountBytes = new byte[]{(byte) fileNameList.size(), (byte) currentBin};
                     byte[] headByte = TransformUtils.subBytes(initialTotalBytes, 0, 5);
@@ -561,7 +568,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                         }
                         currentFrame++;
                         if (currentFrame <= totalFrame) {
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 200);
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 0);
                             if (dataCallback != null) {
                                 dataCallback.nextFrame(currentFrame, totalFrame);
                             }
@@ -570,7 +577,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                     } else {
                         if (loseList.length == 1) { //丢包过多,需重发此帧
                             toast("丢包过多,重新传输");
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 400);
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 100);
                         } else {
                             //发送丢失的包,不需要重发帧头
                             writeBytes(loseList);
@@ -632,6 +639,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         }
     };
 
+    int testPacket = 0;
+
     public void sendMsg(Handler handler, int what, long delayTimes) {
         handler.sendEmptyMessageDelayed(what, delayTimes);
     }
@@ -664,13 +673,25 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         }
     }
 
+    private int cc = 0;
+    long s = 0;
 
     private void writeBytes(byte[] datas) {
 
         bluetoothHelper1.write(bleDevice, Consts.betweenTimes, datas, new BluetoothHelper.WriteListener() {
             @Override
             public void onWriteSuccess(int current, int total, byte[] justWrite) {
-                Log.e("justWrite----", TransformUtils.bytesToHexString(justWrite));
+                if (isTest) {
+                    if (current == 1) {
+                        s = System.currentTimeMillis();
+                    }
+                    if (current == 216) {
+                        s = System.currentTimeMillis() - s;
+                        Log.e("time-----", s + "");
+                        s = 0;
+                    }
+                    Log.e("justWrite----", TransformUtils.bytesToHexString(justWrite));
+                }
                 if (writeCallback != null) {
                     writeCallback.writeSuccess(CURRENT_ACTION, current, total, justWrite);
                 }
@@ -678,7 +699,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                 if (CURRENT_ACTION == ActionUtils.ACTION_OTA_ORDER_I) {
                     handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_VALIFY_OUTTIME, 60000);
                 } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_HEAD_I) {
-                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 400);
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 0);
                 } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_DATA_I) {
                     if (isReconnect) {
                         currentPacket = reCurrentPacket + current;
@@ -777,7 +798,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                             toast("校验成功");
                             CURRENT_ACTION = ActionUtils.ACTION_OTA_DATA_HEAD_I;
 //                            loadingWidget.hide();
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 200);
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 20);
                         }
                     } else if (data[6] == (byte) 0x03 && data[5] == (byte) 0x20) { //ota数据包
                         //成功接收完一帧,开始发送下一帧
@@ -786,8 +807,11 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                         //若出现丢包情况,尚未确定是继续下一帧还是先补包
                         byte[] losePacketList = DataPacketUtils.losePackets(currentFrameBytes, data);
                         loseList = losePacketList;
-                        handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 500);
-
+                        if (isTest) {
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
+                        } else {
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
+                        }
                     }
                 }
 
@@ -822,21 +846,21 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             AssetManager assetManager = getAssets();
             String[] assetsList = assetManager.list("");
             for (int i = assetsList.length - 1; i >= 0; i--) {
-                if (assetsList[i].endsWith(".patch")) {
+                if (assetsList[i].startsWith("high")) {
                     fileNameList.add(assetsList[i]);
                     InputStream inputStream = getResources().getAssets().open(assetsList[i]);
                     byte[] bytes = TransformUtils.streamToByte(inputStream);
                     totalBytesLength += bytes.length;
                 }
             }
-            Log.e("totalLength==", totalBytesLength + "");
+//            Log.e("totalLength==", totalBytesLength + "");
             int crcLength = totalBytesLength % 4096 == 0 ? totalBytesLength / 4096 : totalBytesLength / 4096 + 1;
             totalBytesLength = totalBytesLength + crcLength;
             int packets = totalBytesLength % 19 == 0 ? totalBytesLength / 19 : totalBytesLength / 19 + 1;
             totalBytesLength = totalBytesLength + packets;
-            Log.e("totalLength1==", totalBytesLength + "");
+//            Log.e("totalLength1==", totalBytesLength + "");
             totalPackets = totalBytesLength % 20 == 0 ? totalBytesLength / 20 : totalBytesLength / 20 + 1;
-            Log.e("totalPackets==", totalPackets + "");
+//            Log.e("totalPackets==", totalPackets + "");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -867,7 +891,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                 totalFrame = initialTotalBytes.length % 4096 != 0 ? ((initialTotalBytes.length / 1024 / 4) + 1) : (initialTotalBytes.length / 1024 / 4);
                 Log.e("initialLength----", initialTotalBytes.length + "/" + totalFrame);
                 if (CURRENT_ACTION == ActionUtils.ACTION_OTA_NEXT_BIN || CURRENT_ACTION == ActionUtils.ACTION_OTA_NOTIFY) {
-                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 200);
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 100);
                 }
 //                else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_NOTIFY){
 //                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 1000);
@@ -880,29 +904,48 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         return initialTotalBytes;
     }
 
+    /**
+     * 与追踪的service结合,设备可能已经连接,直接传入device启动下一步逻辑
+     *
+     * @param device
+     */
+    public void connectedNext(BleDevice device) {
+        if (device != null) {
+            connectSuccess(device);
+        }
+    }
+
+    public void scanAndConn(String macAddress) {
+        this.macAddress = macAddress;
+        connect();
+    }
+
+    private void connectSuccess(BleDevice bleDevice) {
+        this.bleDevice = bleDevice;
+        this.macAddress = bleDevice.getMac();
+        connectToDevice(bleDevice.getDevice());
+//        bluetoothHelper1.setMTU(bleDevice, 216, new BluetoothHelper.MTUSetListener() {
+//            @Override
+//            public void setFail(String err) {
+//                Log.e("mtuFail---", err);
+//            }
+//
+//            @Override
+//            public void setSuccess(int mtu) {
+//                Log.e("mtuOk---", mtu + "");
+//            }
+//        });
+        handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OPEN_NOTIFY, 50);
+        MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, null, bleDevice);
+        EventBus.getDefault().post(msgBean);
+    }
+
     public void connectDevice(boolean isAuto) {
         this.mAuto = isAuto;
         bluetoothHelper.openVirtualLeash(true, macAddress, "");
         bluetoothHelper.setConnectSuccessListener((bleDevice, gatt) -> {
             if (bleDevice != null) {
-                this.bleDevice = bleDevice;
-                this.macAddress = bleDevice.getMac();
-                connectToDevice(bleDevice.getDevice());
-                bluetoothHelper1.setMTU(bleDevice, 216, new BluetoothHelper.MTUSetListener() {
-                    @Override
-                    public void setFail(String err) {
-                        Log.e("mtuFail---",err);
-                    }
-
-                    @Override
-                    public void setSuccess(int mtu) {
-                        Log.e("mtuOk---",mtu+"");
-                    }
-                });
-//                    openNotify();
-                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OPEN_NOTIFY, 500);
-                MsgBean msgBean = new MsgBean(ActionUtils.ACTION_CONNECT_SUCCESS_S, gatt, bleDevice);
-                EventBus.getDefault().post(msgBean);
+                connectSuccess(bleDevice);
             }
         });
         bluetoothHelper.setConnectFailListener((bleDevice, description) -> {
@@ -920,7 +963,8 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                 EventBus.getDefault().post(msgBean);
             }
         });
-        bluetoothHelper.setDisconnectListener((bleDevice, bluetoothGatt) -> {
+
+        bluetoothHelper.setDisconnectListener((isActive, bleDevice, bluetoothGatt) -> { //第一个参数为是否是手动断开
             //断开连接,记录数据传输情况
             isReconnect = true;
             disconnectDevice();
@@ -952,7 +996,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
         boolean isBond = bluetoothHelper1.connectOnBondDevice(macAddress);
         long delayTimes = 0;
         if (isBond) {
-            delayTimes = 1000;
+            delayTimes = 100;
         }
         handler.sendEmptyMessageDelayed(ActionUtils.ACTION_UNPAIR_AND_CONNECT, delayTimes);
     }
@@ -964,21 +1008,6 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
 
     protected void onHandleIntent(Intent intent) {
         initData();
-        String action = intent.getAction();
-        if (Objects.equals(action, ActionUtils.ACTION_DEVICE_SCAN)) {
-            //设备mac地址
-            if (bleDevice != null) {
-                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NOTIFY, 1000);
-            } else {
-                macAddress = intent.getStringExtra("mac_address");
-                connect();
-            }
-
-        } else if (Objects.equals(action, "OTA_START")) {
-            //处理bin文件,转换成byte数组
-//            byte[] packetsByte = combinePacket();
-
-        }
     }
 
     public void setProgressCallback(ProgressCallback callback) {

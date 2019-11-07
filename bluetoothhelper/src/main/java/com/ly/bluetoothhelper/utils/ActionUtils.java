@@ -12,7 +12,7 @@ public class ActionUtils {
     public static final int ACTION_UPGRADE_BLE =10002 ;//升级蓝牙芯片
     public static final int ACTION_UPGRADE_BLE_AND_9205 =10003 ;//两者都升级
     public static final String ACTION_DEVICE_SCAN = "ACTION_DEVICE_SCAN";
-    public static final String ACTION_OTA_ORDER_S = "ACTION_OTA_ORDER";
+    public static final String ACTION_DEVICE_CONN = "ACTION_DEVICE_CONN";
     public static final int ACTION_OTA_ORDER_I = 0; //bin文件的正确性校验
     public static final int ACTION_OTA_DATA_HEAD_I = 1; //数据帧帧头命令
     public static final int ACTION_OTA_DATA_DATA_I = 2; //数据帧

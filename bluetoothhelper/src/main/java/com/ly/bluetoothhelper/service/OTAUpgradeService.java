@@ -12,8 +12,6 @@ import android.support.annotation.Nullable;
 import android.util.Log;
 import android.widget.Toast;
 
-import com.clj.fastble.data.BleDevice;
-import com.clj.fastble.exception.BleException;
 import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.beans.TransfirmDataBean;
 import com.ly.bluetoothhelper.callbacks.DataCallback;
@@ -37,6 +35,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+
+import fastble.data.BleDevice;
+import fastble.exception.BleException;
 
 /**
  * author: LingYun

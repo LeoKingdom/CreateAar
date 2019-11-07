@@ -7,7 +7,6 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,7 +27,7 @@ import fastble.utils.BleLog;
  * date: 2019/6/5 10:25
  * version: 1.0
  */
-public class BleConnectHelper {
+public class BleConnectHelper1 {
     //action String
     public static final String BLE_SCAN_START = "ble.scan.start";
     public static final String BLE_SCAN_FINISH = "ble.scan.finish";
@@ -44,7 +43,7 @@ public class BleConnectHelper {
     public static final int BLE_NOT_FOUND_I = 0x1006;
     public static final int START_TIMER = 0;
     private static final int BASE_SCAN_TIME = 10000;
-    private static BleConnectHelper bleConnectHelper;
+    private static BleConnectHelper1 bleConnectHelper;
     private BleManager bleManager;
     private BluetoothHelper bluetoothHelper;
     private Map<String, BleDevice> connDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是BleDevice，已连接的设备
@@ -55,7 +54,8 @@ public class BleConnectHelper {
     private Timer timer;
     private TimerTask timerTask;
     private double maxDistance;
-    private BleConnectHelper() {
+
+    private BleConnectHelper1() {
     }
 
     public Map<String, String> getReconnDeviceMap() {
@@ -72,7 +72,7 @@ public class BleConnectHelper {
      * @param application
      * @return
      */
-    public BleConnectHelper init(Application application) {
+    public BleConnectHelper1 init(Application application) {
         bluetoothHelper = new BluetoothHelper(application);
         bleManager = bluetoothHelper.getBleManager();
         return this;
@@ -85,7 +85,7 @@ public class BleConnectHelper {
      * @param reconnectCount 重连次数
      * @return
      */
-    public BleConnectHelper init(Application application, int reconnectCount) {
+    public BleConnectHelper1 init(Application application, int reconnectCount) {
         bluetoothHelper = new BluetoothHelper(application, reconnectCount);
         bleManager = bluetoothHelper.getBleManager();
         return this;
@@ -99,7 +99,7 @@ public class BleConnectHelper {
      * @param maxDistance    最大连接距离
      * @return
      */
-    public BleConnectHelper init(Application application, int reconnectCount, double maxDistance) {
+    public BleConnectHelper1 init(Application application, int reconnectCount, double maxDistance) {
         bluetoothHelper = new BluetoothHelper(application, reconnectCount);
         bleManager = bluetoothHelper.getBleManager();
         this.maxDistance = maxDistance;
@@ -111,18 +111,101 @@ public class BleConnectHelper {
      *
      * @return 返回单例对象
      */
-    public static BleConnectHelper getInstance() {
+    public static BleConnectHelper1 getInstance() {
         if (bleConnectHelper == null) {
-            synchronized (BleConnectHelper.class) {
+            synchronized (BleConnectHelper1.class) {
                 if (bleConnectHelper == null) {
-                    bleConnectHelper = new BleConnectHelper();
+                    bleConnectHelper = new BleConnectHelper1();
                 }
             }
         }
         return bleConnectHelper;
     }
 
-    public void openVirtualLeash(boolean isFuzzzy,String address,String name) {
+    private BluetoothHelper.BleConnectListener connectListener = new BluetoothHelper.BleConnectListener() {
+
+        @Override
+        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
+            if (isReConnectDevice(bleDevice.getMac())) {
+                getReconnectSuccessNext(bleDevice);
+            } else {
+                getConnectSuccessNext(bleDevice, gatt);
+            }
+            addConnectDevice(bleDevice.getMac(), bleDevice);//加入已连接的列表中
+            removeReConnectDevice(bleDevice.getMac());//从断开连接的列表中移除
+            readRssi();//读rssi
+        }
+
+        @Override
+        public void onConnectFail(BleDevice bleDevice, BleException e) {
+            getConnectFailNext(bleDevice, e.getDescription());
+            addReConnectDevice(bleDevice.getMac(), bleDevice.getName());//加入重连列表中
+            startReconnect(bleDevice.getMac(), 2000);//重新连接
+        }
+
+        @Override
+        public void onBleDisable() {
+
+        }
+
+        @Override
+        public void onDisconnect(boolean isActiveDis, BleDevice device) {
+            Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi());
+            getDisconnectNext(isActiveDis, device, null);
+            removeConnectDevice(device.getMac());//从已连接的列表中移除
+            if (!isActiveDis) {//不是主动断开的
+                addReConnectDevice(device.getMac(), device.getName());//加入重连列表中
+                startReconnect(device.getMac(), 100);//开启重连
+            } else {//主动断开连接的话，移除rssimap和reconnectmap
+                removeReConnectDevice(device.getMac());
+                removeRssiDevice(device.getMac());
+            }
+        }
+    };
+
+    public void scanList(Map<String, String> macList) {
+        for (Map.Entry entry : macList.entrySet()) {
+            needConnectMap.add(entry.getKey().toString());
+        }
+        bluetoothHelper.scan(new BluetoothHelper.BleScanListener() {
+            @Override
+            public void onScanFinished(List<BleDevice> bleDeviceList) {
+                for (Map.Entry bleEntry : macList.entrySet()) {
+                    String mac=bleEntry.getKey().toString();
+                    if (!bleDeviceList.contains(mac) && !connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
+                        addReConnectDevice(mac, macList.get(mac));//加入重连列表中
+                        startReconnect(mac, 2000);//重新连接
+                    }
+                }
+
+            }
+
+            @Override
+            public void onScanStart() {
+                getScanStartNext();
+            }
+
+            @Override
+            public void onScanning(BleDevice device) {
+                if (device != null) {
+                    String mac = device.getMac();
+                    if (needConnectMap.contains(mac)) {
+                        bluetoothHelper.connect(device, connectListener);
+                        getScanFinishNext(device);
+                        checkRssi(device, mac, macList.get(mac));//检查rssi
+
+                    }
+                }
+            }
+
+            @Override
+            public void onBleDisable() {
+
+            }
+        });
+    }
+
+    public void openVirtualLeash(boolean isFuzzzy, String address, String name) {
         needConnectMap.add(address);
         openVirtualLeash(address, name);
     }
@@ -292,16 +375,16 @@ public class BleConnectHelper {
 
     //重连的hanlder
     public static class ReconnHandler extends Handler {
-        private WeakReference<BleConnectHelper> reconnectHelperWeakReference;
+        private WeakReference<BleConnectHelper1> reconnectHelperWeakReference;
 
-        public ReconnHandler(BleConnectHelper reconnectHelper) {
+        public ReconnHandler(BleConnectHelper1 reconnectHelper) {
             reconnectHelperWeakReference = new WeakReference<>(reconnectHelper);
         }
 
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            BleConnectHelper connect = reconnectHelperWeakReference.get();
+            BleConnectHelper1 connect = reconnectHelperWeakReference.get();
             switch (msg.what) {
                 case START_TIMER:
                     String key = (String) msg.obj;//key为蓝牙地址

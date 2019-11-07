@@ -100,6 +100,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             otaUpgradeService1 = binder.getService();
             otaUpgradeService1.addHandler(mHandler);
             isBond=true;
+            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:32");
 //            otaUpgradeService1.connectToDevice(bleDevice.getDevice());
             Log.e("bind---", "ok");
             setCallback();
@@ -621,10 +622,12 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
     public void connect(View view) {
         String macAddress = macEt.getText().toString().trim();
         if (TextUtils.isEmpty(macAddress)) {
-            macAddress = "01:02:04:05:06:09";
+            macAddress = "01:02:04:05:A6:16";
+//            macAddress = "01:02:04:05:06:09";
         }
         if (isBond){
-            otaUpgradeService1.handleConnect(macAddress);
+            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:93");
+//            otaUpgradeService1.scanAndConn(macAddress);
         }else {
         bindMyService(macAddress);}
     }

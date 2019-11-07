@@ -1,28 +1,32 @@
-package com.clj.fastble.scan;
+package fastble.scan;
 
 
 import android.annotation.TargetApi;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
-import com.clj.fastble.BleManager;
-import com.clj.fastble.callback.BleScanAndConnectCallback;
-import com.clj.fastble.callback.BleScanCallback;
-import com.clj.fastble.callback.BleScanPresenterImp;
-import com.clj.fastble.data.BleDevice;
-import com.clj.fastble.data.BleScanState;
-import com.clj.fastble.utils.BleLog;
 
 import java.util.List;
 import java.util.UUID;
 
+import fastble.BleManager;
+import fastble.callback.BleScanAndConnectCallback;
+import fastble.callback.BleScanCallback;
+import fastble.callback.BleScanPresenterImp;
+import fastble.data.BleDevice;
+import fastble.data.BleScanState;
+import fastble.utils.BleLog;
+
 @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
 public class BleScanner {
 
-    public BleScanner(){}
+    public BleScanner() {
+    }
+
     public static BleScanner getInstance() {
-        return new BleScanner();
+        return BleScannerHolder.sBleScanner;
     }
 
     private static class BleScannerHolder {
@@ -79,6 +83,9 @@ public class BleScanner {
                         callback.onScanFinished(bleDeviceList.get(0));
                     }
                     final List<BleDevice> list = bleDeviceList;
+                    for (BleDevice device : list) {
+                        Log.e("macAddress----", device.getMac()+"");
+                    }
                     new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                         @Override
                         public void run() {
@@ -117,7 +124,7 @@ public class BleScanner {
             }
             return;
         }
-
+        Log.e("hashcode-----",mBleScanPresenter.hashCode()+"/"+imp.hashCode());
         mBleScanPresenter.prepare(names, mac, fuzzy, needConnect, timeOut, imp);
 
         boolean success = BleManager.getInstance().getBluetoothAdapter()

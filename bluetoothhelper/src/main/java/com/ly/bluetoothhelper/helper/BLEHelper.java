@@ -6,13 +6,14 @@ import android.bluetooth.BluetoothGattCharacteristic;
 import android.os.CountDownTimer;
 import android.util.Log;
 
-import com.clj.fastble.BleManager;
-import com.clj.fastble.data.BleDevice;
-import com.clj.fastble.exception.BleException;
-import com.clj.fastble.utils.BleLog;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import fastble.BleManager;
+import fastble.data.BleDevice;
+import fastble.exception.BleException;
+import fastble.utils.BleLog;
 
 /**
  * author: LingYun
