@@ -246,7 +246,7 @@ public class BluetoothHelper {
         if (!isOpenBle()) {
             handleListener.onBleDisable();
         }
-        bleManager.initScanRule(scanRule(isFuzzy, address, name));
+        bleManager.initScanRule(scanRule(isFuzzy, address, name,true));
         bleManager.scanAndConnect(new BleScanAndConnectCallback() {
 
             @Override
@@ -299,7 +299,6 @@ public class BluetoothHelper {
              */
             @Override
             public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
-
                 if (handleListener != null) {
                     handleListener.onConnectSuccess(bleDevice, gatt, status);
                 }
@@ -364,10 +363,14 @@ public class BluetoothHelper {
         bleManager.disconnect(bleDevice);
     }
 
+
     /**
      * 扫描蓝牙设备
      */
     public void scan(BleScanListener scanListener) {
+        if (!isOpenBle()) {
+            scanListener.onBleDisable();
+        }
         bleManager.scan(new BleScanCallback() {
             @Override
             public void onScanFinished(List<BleDevice> scanResultList) {
@@ -493,18 +496,18 @@ public class BluetoothHelper {
     }
 
 
-    public void setMTU(BleDevice device,int mtu,MTUSetListener mtuSetListener){
+    public void setMTU(BleDevice device, int mtu, MTUSetListener mtuSetListener) {
         bleManager.setMtu(device, mtu, new BleMtuChangedCallback() {
             @Override
             public void onSetMTUFailure(BleException exception) {
-                if (mtuSetListener!=null){
+                if (mtuSetListener != null) {
                     mtuSetListener.setFail(exception.getDescription());
                 }
             }
 
             @Override
             public void onMtuChanged(int mtu) {
-                if (mtuSetListener!=null){
+                if (mtuSetListener != null) {
                     mtuSetListener.setSuccess(mtu);
                 }
             }
@@ -516,8 +519,9 @@ public class BluetoothHelper {
      * 对外暴露的接口,处理蓝牙的细分回调,如连接,扫描等操作 START
      */
 
-    public interface MTUSetListener{
+    public interface MTUSetListener {
         void setFail(String err);
+
         void setSuccess(int mtu);
     }
 
@@ -557,8 +561,8 @@ public class BluetoothHelper {
     /*----------------------------------单独扫描的回调 start------------------------------*/
     public interface BleScanListener {
         void onScanFinished(List<BleDevice> bleDeviceList);
-
         void onScanStart();
+        void onBleDisable();
     }
     /*----------------------------------单独扫描的回调 end------------------------------*/
 
@@ -814,12 +818,12 @@ public class BluetoothHelper {
      * @param name    需要扫描的蓝牙名称
      * @return
      */
-    private BleScanRuleConfig scanRule(boolean isFuzzy, String address, String name) {
+    private BleScanRuleConfig scanRule(boolean isFuzzy, String address, String name,boolean isAutoConnect) {
         BleScanRuleConfig ruleConfig = new BleScanRuleConfig.Builder()
                 .setServiceUuids(null)
                 .setDeviceMac(address)
                 .setDeviceName(isFuzzy, name)
-                .setAutoConnect(true)
+                .setAutoConnect(isAutoConnect)
                 .setScanTimeOut(10000)
                 .build();
         return ruleConfig;
