@@ -145,7 +145,7 @@ public class BleConnectHelper {
                 if (needConnectMap.contains(address)) {
                     getScanFinishNext(bleDevice);
                     checkRssi(bleDevice, address, name);//检查rssi
-                    if (bleDevice == null) {//如果没扫描到，过段时间继续扫描
+                    if (bleDevice == null && !connDeviceMap.containsKey(address)) {//如果没扫描到，过段时间继续扫描
                         addReConnectDevice(address, name);//加入重连列表中
                         startReconnect(address, 2000);//重新连接
                     }
@@ -201,7 +201,7 @@ public class BleConnectHelper {
      * @param address   蓝牙mac地址
      */
     private void checkRssi(BleDevice bleDevice, String address, String name) {
-        if (bleDevice == null) {//如果扫描不到了
+        if (bleDevice == null && !connDeviceMap.containsKey(address)) {//如果扫描不到了
             if (readRssiMap.containsKey(address)) {//之前有存rssi的话，说明之前扫描到过
                 Integer valueRssi = readRssiMap.get(address);
                 double distance = getDistance(valueRssi);//判断距离
