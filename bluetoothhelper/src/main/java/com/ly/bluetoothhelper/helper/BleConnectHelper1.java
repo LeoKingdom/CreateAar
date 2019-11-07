@@ -140,7 +140,7 @@ public class BleConnectHelper1 {
         public void onConnectFail(BleDevice bleDevice, BleException e) {
             getConnectFailNext(bleDevice, e.getDescription());
             addReConnectDevice(bleDevice.getMac(), bleDevice.getName());//加入重连列表中
-            startReconnect(bleDevice.getMac(), 2000);//重新连接
+            startReconnect(bleDevice.getMac(), BASE_SCAN_TIME);//重新连接
         }
 
         @Override
@@ -174,7 +174,7 @@ public class BleConnectHelper1 {
                     String mac=bleEntry.getKey().toString();
                     if (!bleDeviceList.contains(mac) && !connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
                         addReConnectDevice(mac, macList.get(mac));//加入重连列表中
-                        startReconnect(mac, 2000);//重新连接
+                        startReconnect(mac, BASE_SCAN_TIME);//重新连接
                     }
                 }
 
@@ -404,12 +404,15 @@ public class BleConnectHelper1 {
     private void reconnListening(String key) {
         Map<String, String> reconnDeviceMap = getReconnDeviceMap();
         Set<Map.Entry<String, String>> keys = reconnDeviceMap.entrySet();
+        Map<String,String> scanMap=new HashMap<>();
         if (reconnDeviceMap.size() > 0) {//遍历需要重连的设备
             for (Map.Entry<String, String> entry : keys) {
                 if (entry.getKey().equals(key)) {
-                    openVirtualLeash(entry.getKey(), entry.getValue());
+                    scanMap.put(entry.getKey(),entry.getValue());
+//                    openVirtualLeash(entry.getKey(), entry.getValue());
                 }
             }
+            scanList(scanMap);
         }
     }
 
