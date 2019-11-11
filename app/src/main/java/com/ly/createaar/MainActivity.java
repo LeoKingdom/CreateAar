@@ -2,6 +2,7 @@ package com.ly.createaar;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothGatt;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -25,13 +26,12 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.clj.fastble.data.BleDevice;
 import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.callbacks.DataCallback;
 import com.ly.bluetoothhelper.callbacks.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.ProgressCallback;
 import com.ly.bluetoothhelper.callbacks.WriteCallback;
-import com.ly.bluetoothhelper.helper.BluetoothHelper;
+import com.ly.bluetoothhelper.helper.BleConnectHelper1;
 import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
 import com.ly.bluetoothhelper.oat.annotation.Enums;
 import com.ly.bluetoothhelper.oat.annotation.ErrorTypes;
@@ -40,9 +40,7 @@ import com.ly.bluetoothhelper.oat.annotation.State;
 import com.ly.bluetoothhelper.oat.annotation.Support;
 import com.ly.bluetoothhelper.oat.service.OtauBleService;
 import com.ly.bluetoothhelper.oat.upgrade.UpgradeError;
-import com.ly.bluetoothhelper.oat.upgrade.UpgradeManager;
 import com.ly.bluetoothhelper.oat.upgrade.UploadProgress;
-import com.ly.bluetoothhelper.oat.upgrade.codes.ResumePoints;
 import com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes;
 import com.ly.bluetoothhelper.service.OTAUpgradeService;
 import com.ly.bluetoothhelper.utils.ActionUtils;
@@ -62,7 +60,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import fastble.data.BleDevice;
 
 public class MainActivity extends FragmentActivity implements VMUpgradeDialog.UpgradeDialogListener {
 
@@ -78,7 +80,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
     private List<String> fileNameList = new ArrayList<>();
     private Button otaBtn;
     private Button gtBtn;
-    private boolean isBond=false;
+    private boolean isBond = false;
     private ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -92,26 +94,6 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 
         }
     };
-
-    private ServiceConnection connection1 = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            OtauBleService.LocalBinder binder = (OtauBleService.LocalBinder) service;
-            otaUpgradeService1 = binder.getService();
-            otaUpgradeService1.addHandler(mHandler);
-            isBond=true;
-            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:32");
-//            otaUpgradeService1.connectToDevice(bleDevice.getDevice());
-            Log.e("bind---", "ok");
-            setCallback();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            isBond=false;
-        }
-    };
-
     //与service之间的各种消息回调
     @SuppressLint("HandlerLeak")
     private Handler mHandler = new Handler() {
@@ -238,6 +220,24 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
                     break;
             }
 
+        }
+    };
+    private ServiceConnection connection1 = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            OtauBleService.LocalBinder binder = (OtauBleService.LocalBinder) service;
+            otaUpgradeService1 = binder.getService();
+            otaUpgradeService1.addHandler(mHandler);
+            isBond = true;
+            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:32");
+//            otaUpgradeService1.connectToDevice(bleDevice.getDevice());
+            Log.e("bind---", "ok");
+            setCallback();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            isBond = false;
         }
     };
     private AlertDialog mDialogReconnection;
@@ -518,11 +518,11 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         setContentView(R.layout.activity_main);
         EventBus.getDefault().register(this);
         editText = findViewById(R.id.edittext);
-        macEt=findViewById(R.id.mac_et);
+        macEt = findViewById(R.id.mac_et);
         progressDialogWidget = findViewById(R.id.progress_dialog);
         loadingWidget = findViewById(R.id.main_loading_widget);
-        otaBtn=findViewById(R.id.ot_btn);
-        gtBtn=findViewById(R.id.gt_btn);
+        otaBtn = findViewById(R.id.ot_btn);
+        gtBtn = findViewById(R.id.gt_btn);
         TextView txtTagProgress = progressDialogWidget.getProgressNumTv();
         decimalFormat = new DecimalFormat("0.0000");
 //        combinePacket();
@@ -531,9 +531,9 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         checkLocation();
         copyAssetAndWrite("mkn0_bt_uart_v03.bin");
         otaBtn.setOnClickListener(v -> {
-            if (bleDevice==null){
+            if (bleDevice == null) {
                 toast("设备未连接");
-            }else {
+            } else {
                 otaUpgradeService1.startUpgrade(null);
             }
         });
@@ -620,16 +620,40 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 
     //connect to device
     public void connect(View view) {
-        String macAddress = macEt.getText().toString().trim();
-        if (TextUtils.isEmpty(macAddress)) {
-            macAddress = "01:02:04:05:A6:16";
-//            macAddress = "01:02:04:05:06:09";
-        }
-        if (isBond){
-            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:93");
-//            otaUpgradeService1.scanAndConn(macAddress);
-        }else {
-        bindMyService(macAddress);}
+        Map<String,String> connectMap=new HashMap<>();
+        connectMap.put("88:9E:33:EE:A7:4C","Timy");
+        connectMap.put("88:9E:33:EE:A7:B2","Tiger");
+        BleConnectHelper1 bleConnectHelper1 = BleConnectHelper1.getInstance().init(getApplication(), 0, 1.0);
+        bleConnectHelper1.scanList(connectMap);
+        bleConnectHelper1.setScanFinishListener(new BleConnectHelper1.OnScanFinishListener() {
+            @Override
+            public void scanFinish(fastble.data.BleDevice bleDevice) {
+                Log.e("finish---",bleDevice.getMac()+"");
+            }
+        });
+        bleConnectHelper1.setConnectSuccessListener(new BleConnectHelper1.OnConnectSuccessListener() {
+            @Override
+            public void connectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
+                Log.e("connectSuccess---",bleDevice.getMac()+"");
+            }
+        });
+        bleConnectHelper1.setConnectFailListener(new BleConnectHelper1.OnConnectFailListener() {
+            @Override
+            public void connectFail(BleDevice bleDevice, String description) {
+                Log.e("connectFail----",description);
+            }
+        });
+//        String macAddress = macEt.getText().toString().trim();
+//        if (TextUtils.isEmpty(macAddress)) {
+//            macAddress = "01:02:04:05:A6:16";
+////            macAddress = "01:02:04:05:06:09";
+//        }
+//        if (isBond) {
+//            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:93");
+////            otaUpgradeService1.scanAndConn(macAddress);
+//        } else {
+//            bindMyService(macAddress);
+//        }
     }
 
     public void read(View view) {

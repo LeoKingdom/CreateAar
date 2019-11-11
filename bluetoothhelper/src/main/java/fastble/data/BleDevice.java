@@ -64,7 +64,7 @@ public class BleDevice implements Parcelable {
 
     public String getMac() {
         if (mDevice != null)
-            return mDevice.getAddress();
+            return mDevice.getAddress().toUpperCase();
         return null;
     }
 

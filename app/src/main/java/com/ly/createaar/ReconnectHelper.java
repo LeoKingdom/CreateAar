@@ -4,7 +4,6 @@ import android.os.CountDownTimer;
 import android.os.Handler;
 import android.os.Message;
 
-import com.clj.fastble.data.BleDevice;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
 
 import java.lang.ref.WeakReference;
@@ -13,6 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import fastble.data.BleDevice;
 
 
 /**

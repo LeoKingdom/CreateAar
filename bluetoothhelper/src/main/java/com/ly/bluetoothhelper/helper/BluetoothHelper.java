@@ -365,6 +365,12 @@ public class BluetoothHelper {
     }
 
 
+    public BleDevice getBleDeviceFromMac(String mac){
+        BluetoothDevice bluetoothDevice = bleManager.getBluetoothAdapter().getRemoteDevice(mac);
+        BleDevice bleDevice = new BleDevice(bluetoothDevice, 0, null, 0);
+        return bleDevice;
+    }
+
     /**
      * 扫描蓝牙设备
      */

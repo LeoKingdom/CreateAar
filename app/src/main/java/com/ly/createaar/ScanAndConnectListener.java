@@ -1,9 +1,7 @@
 package com.ly.createaar;
 
-import com.clj.fastble.data.BleDevice;
 
-import org.greenrobot.eventbus.Subscribe;
-import org.greenrobot.eventbus.ThreadMode;
+import fastble.data.BleDevice;
 
 /**
  * author: LingYun

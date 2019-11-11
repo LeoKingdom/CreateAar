@@ -8,10 +8,12 @@ import android.os.Message;
 import android.util.Log;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -50,12 +52,106 @@ public class BleConnectHelper1 {
     private Map<String, Integer> readRssiMap = new HashMap<>();//第一个参数是address,第二个参数是rrsi值，读rssi的设备
     private Map<String, String> reconnDeviceMap = new HashMap<>();//第一个参数是address,第二个参数是name,需要重连的设备
     private Set<String> needConnectMap = new HashSet<>();//需要连接的设备
+    private List<String> macaddrList = new ArrayList<>(); //扫描到的所以设备mac列表
     private ReconnHandler reConnHandler = new ReconnHandler(this);
     private Timer timer;
     private TimerTask timerTask;
     private double maxDistance;
+    /**
+     * 扫描开始监听
+     */
+    private OnScanStartListener scanStartListener;
+    /**
+     * 扫描完成监听
+     */
+    private OnScanFinishListener scanFinishListener;
+    /**
+     * 连接成功监听
+     */
+    private OnConnectSuccessListener connectSuccessListener;
+    /**
+     * 连接失败监听
+     */
+    private OnConnectFailListener connectFailListener;
+    /**
+     * 设备间断开蓝牙连接监听
+     */
+    private OnDisconnectListener disconnectListener;
+    /**
+     * 重连成功监听
+     */
+    private OnReconnectSuccessListener reconnectSuccessListener;
+    /**
+     * 重连失败监听
+     */
+    private OnReconnectFailListener reconnectFailListener;
+    /**
+     * 自身设备关闭蓝牙监听
+     */
+    private OnDeviceSelfDisableListener deviceSelfDisableListener;
+    /**
+     * 设备是否走远监听
+     */
+    private OnDeviceAwayListener deviceAwayListener;
+    private OnCharacteristicChangeListener onCharacteristicChangeListener;
+    private BluetoothHelper.BleConnectListener connectListener = new BluetoothHelper.BleConnectListener() {
+
+        @Override
+        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
+            if (isReConnectDevice(bleDevice.getMac())) {
+                getReconnectSuccessNext(bleDevice);
+            } else {
+                getConnectSuccessNext(bleDevice, gatt);
+            }
+            addConnectDevice(bleDevice.getMac(), bleDevice);//加入已连接的列表中
+            removeReConnectDevice(bleDevice.getMac());//从断开连接的列表中移除
+            readRssi();//读rssi
+        }
+
+        @Override
+        public void onConnectFail(BleDevice bleDevice, BleException e) {
+            getConnectFailNext(bleDevice, e.getDescription());
+            addReConnectDevice(bleDevice.getMac(), bleDevice.getName());//加入重连列表中
+            startReconnect(bleDevice.getMac(), BASE_SCAN_TIME);//重新连接
+        }
+
+        @Override
+        public void onBleDisable() {
+
+        }
+
+        @Override
+        public void onDisconnect(boolean isActiveDis, BleDevice device) {
+            Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi());
+            getDisconnectNext(isActiveDis, device, null);
+            removeConnectDevice(device.getMac());//从已连接的列表中移除
+            if (!isActiveDis) {//不是主动断开的
+                addReConnectDevice(device.getMac(), device.getName());//加入重连列表中
+                startReconnect(device.getMac(), 100);//开启重连
+            } else {//主动断开连接的话，移除rssimap和reconnectmap
+                removeReConnectDevice(device.getMac());
+                removeRssiDevice(device.getMac());
+            }
+        }
+    };
 
     private BleConnectHelper1() {
+    }
+
+    /**
+     * 获取单例对象
+     *
+     * @return 返回单例对象
+     */
+    public static BleConnectHelper1 getInstance() {
+        if (bleConnectHelper == null) {
+            synchronized (BleConnectHelper1.class) {
+                if (bleConnectHelper == null) {
+                    bleConnectHelper = new BleConnectHelper1();
+                }
+            }
+        }
+        return bleConnectHelper;
     }
 
     public Map<String, String> getReconnDeviceMap() {
@@ -106,75 +202,31 @@ public class BleConnectHelper1 {
         return this;
     }
 
-    /**
-     * 获取单例对象
-     *
-     * @return 返回单例对象
-     */
-    public static BleConnectHelper1 getInstance() {
-        if (bleConnectHelper == null) {
-            synchronized (BleConnectHelper1.class) {
-                if (bleConnectHelper == null) {
-                    bleConnectHelper = new BleConnectHelper1();
-                }
-            }
-        }
-        return bleConnectHelper;
-    }
-
-    private BluetoothHelper.BleConnectListener connectListener = new BluetoothHelper.BleConnectListener() {
-
-        @Override
-        public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
-            if (isReConnectDevice(bleDevice.getMac())) {
-                getReconnectSuccessNext(bleDevice);
-            } else {
-                getConnectSuccessNext(bleDevice, gatt);
-            }
-            addConnectDevice(bleDevice.getMac(), bleDevice);//加入已连接的列表中
-            removeReConnectDevice(bleDevice.getMac());//从断开连接的列表中移除
-            readRssi();//读rssi
-        }
-
-        @Override
-        public void onConnectFail(BleDevice bleDevice, BleException e) {
-            getConnectFailNext(bleDevice, e.getDescription());
-            addReConnectDevice(bleDevice.getMac(), bleDevice.getName());//加入重连列表中
-            startReconnect(bleDevice.getMac(), BASE_SCAN_TIME);//重新连接
-        }
-
-        @Override
-        public void onBleDisable() {
-
-        }
-
-        @Override
-        public void onDisconnect(boolean isActiveDis, BleDevice device) {
-            Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi());
-            getDisconnectNext(isActiveDis, device, null);
-            removeConnectDevice(device.getMac());//从已连接的列表中移除
-            if (!isActiveDis) {//不是主动断开的
-                addReConnectDevice(device.getMac(), device.getName());//加入重连列表中
-                startReconnect(device.getMac(), 100);//开启重连
-            } else {//主动断开连接的话，移除rssimap和reconnectmap
-                removeReConnectDevice(device.getMac());
-                removeRssiDevice(device.getMac());
-            }
-        }
-    };
-
     public void scanList(Map<String, String> macList) {
+        macaddrList.clear();
         for (Map.Entry entry : macList.entrySet()) {
             needConnectMap.add(entry.getKey().toString());
         }
         bluetoothHelper.scan(new BluetoothHelper.BleScanListener() {
             @Override
             public void onScanFinished(List<BleDevice> bleDeviceList) {
-                for (Map.Entry bleEntry : macList.entrySet()) {
-                    String mac=bleEntry.getKey().toString();
-                    if (!bleDeviceList.contains(mac) && !connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
+                for (BleDevice device : bleDeviceList) {
+                    macaddrList.add(device.getMac());
+                }
+                for (String m : needConnectMap) {
+                    String mac = m;
+                    for (String deviceMac : macaddrList) {
+                        if (mac.equalsIgnoreCase(deviceMac)) {
+                            BleDevice bleDevice = bluetoothHelper.getBleDeviceFromMac(mac);
+                            getScanFinishNext(bleDevice);
+                            checkRssi(bleDevice, mac, macList.get(mac));//检查rssi
+                            bluetoothHelper.connect(deviceMac, bleDevice.getName(), connectListener);
+                        }
+                    }
+                    if (!macaddrList.contains(mac) && !connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
                         addReConnectDevice(mac, macList.get(mac));//加入重连列表中
                         startReconnect(mac, BASE_SCAN_TIME);//重新连接
+                        getScanFinishNext(null);//
                     }
                 }
 
@@ -189,12 +241,16 @@ public class BleConnectHelper1 {
             public void onScanning(BleDevice device) {
                 if (device != null) {
                     String mac = device.getMac();
-                    if (needConnectMap.contains(mac)) {
-                        bluetoothHelper.connect(device, connectListener);
-                        getScanFinishNext(device);
-                        checkRssi(device, mac, macList.get(mac));//检查rssi
+                    Log.e("scanning-----", mac + "");
+                    for (Map.Entry entry : macList.entrySet()) {
 
                     }
+//                    if (needConnectMap.contains(mac)) {
+//                        bluetoothHelper.connect(device, connectListener);
+//                        getScanFinishNext(device);
+//                        checkRssi(device, mac, macList.get(mac));//检查rssi
+//
+//                    }
                 }
             }
 
@@ -209,7 +265,6 @@ public class BleConnectHelper1 {
         needConnectMap.add(address);
         openVirtualLeash(address, name);
     }
-
 
     /**
      * 扫描并连接
@@ -283,7 +338,6 @@ public class BleConnectHelper1 {
         });
     }
 
-
     /**
      * 检查rssi来判断是否走远了
      *
@@ -297,6 +351,8 @@ public class BleConnectHelper1 {
                 double distance = getDistance(valueRssi);//判断距离
                 if (distance > maxDistance) {//如果距离大于10米了，那就走远了
                     getDeviceAwayNext(address, name);
+                } else {
+                    deviceSelfDisableListener.deviceSelfDisable();
                 }
             }
         } else {//说明还能扫描到
@@ -318,7 +374,7 @@ public class BleConnectHelper1 {
                         bluetoothHelper.readRssi(device.getValue(), new BluetoothHelper.RemoteRssiListener() {
                             @Override
                             public void onRemoteRssi(int rssi) {
-                                Log.e("rssi----", rssi + "/" + getDistance(rssi));
+                                Log.e("rssi----" + device.getKey(), rssi + "/" + getDistance(rssi));
                                 readRssiMap.put(device.getKey(), rssi);
                             }
 
@@ -360,6 +416,7 @@ public class BleConnectHelper1 {
         return Math.pow(10, power);
     }
 
+    //----------------对外listeners----------------------
 
     /**
      * 开始重连
@@ -373,29 +430,6 @@ public class BleConnectHelper1 {
         reConnHandler.sendMessageDelayed(message, delaymiillis);
     }
 
-    //重连的hanlder
-    public static class ReconnHandler extends Handler {
-        private WeakReference<BleConnectHelper1> reconnectHelperWeakReference;
-
-        public ReconnHandler(BleConnectHelper1 reconnectHelper) {
-            reconnectHelperWeakReference = new WeakReference<>(reconnectHelper);
-        }
-
-        @Override
-        public void handleMessage(Message msg) {
-            super.handleMessage(msg);
-            BleConnectHelper1 connect = reconnectHelperWeakReference.get();
-            switch (msg.what) {
-                case START_TIMER:
-                    String key = (String) msg.obj;//key为蓝牙地址
-                    if (key != null) {
-                        connect.reconnListening(key);
-                    }
-                    break;
-            }
-        }
-    }
-
     /**
      * 开启重连
      *
@@ -403,16 +437,16 @@ public class BleConnectHelper1 {
      */
     private void reconnListening(String key) {
         Map<String, String> reconnDeviceMap = getReconnDeviceMap();
-        Set<Map.Entry<String, String>> keys = reconnDeviceMap.entrySet();
-        Map<String,String> scanMap=new HashMap<>();
+        Map<String, String> scanMap = new HashMap<>();
         if (reconnDeviceMap.size() > 0) {//遍历需要重连的设备
-            for (Map.Entry<String, String> entry : keys) {
-                if (entry.getKey().equals(key)) {
-                    scanMap.put(entry.getKey(),entry.getValue());
-//                    openVirtualLeash(entry.getKey(), entry.getValue());
+            for (String key1 : reconnDeviceMap.keySet()) {
+                if (key1.equals(key)) {
+                    scanMap.put(key1, Objects.requireNonNull(reconnDeviceMap.get(key1)));
                 }
             }
             scanList(scanMap);
+        } else {
+
         }
     }
 
@@ -475,19 +509,8 @@ public class BleConnectHelper1 {
         reconnDeviceMap.remove(mac);
     }
 
-    //----------------对外listeners----------------------
-
-    /**
-     * 扫描开始监听
-     */
-    private OnScanStartListener scanStartListener;
-
     public void setScanStartListener(OnScanStartListener scanStartListener) {
         this.scanStartListener = scanStartListener;
-    }
-
-    public interface OnScanStartListener {
-        void scanStart();
     }
 
     private void getScanStartNext() {
@@ -496,17 +519,8 @@ public class BleConnectHelper1 {
         }
     }
 
-    /**
-     * 扫描完成监听
-     */
-    private OnScanFinishListener scanFinishListener;
-
     public void setScanFinishListener(OnScanFinishListener scanFinishListener) {
         this.scanFinishListener = scanFinishListener;
-    }
-
-    public interface OnScanFinishListener {
-        void scanFinish(BleDevice bleDevice);
     }
 
     private void getScanFinishNext(BleDevice bleDevice) {
@@ -515,18 +529,8 @@ public class BleConnectHelper1 {
         }
     }
 
-
-    /**
-     * 连接成功监听
-     */
-    private OnConnectSuccessListener connectSuccessListener;
-
     public void setConnectSuccessListener(OnConnectSuccessListener connectSuccessListener) {
         this.connectSuccessListener = connectSuccessListener;
-    }
-
-    public interface OnConnectSuccessListener {
-        void connectSuccess(BleDevice bleDevice, BluetoothGatt gatt);
     }
 
     private void getConnectSuccessNext(BleDevice bleDevice, BluetoothGatt gatt) {
@@ -535,17 +539,8 @@ public class BleConnectHelper1 {
         }
     }
 
-    /**
-     * 连接失败监听
-     */
-    private OnConnectFailListener connectFailListener;
-
     public void setConnectFailListener(OnConnectFailListener connectFailListener) {
         this.connectFailListener = connectFailListener;
-    }
-
-    public interface OnConnectFailListener {
-        void connectFail(BleDevice bleDevice, String description);
     }
 
     private void getConnectFailNext(BleDevice bleDevice, String description) {
@@ -554,17 +549,8 @@ public class BleConnectHelper1 {
         }
     }
 
-    /**
-     * 设备间断开蓝牙连接监听
-     */
-    private OnDisconnectListener disconnectListener;
-
     public void setDisconnectListener(OnDisconnectListener disconnectListener) {
         this.disconnectListener = disconnectListener;
-    }
-
-    public interface OnDisconnectListener {
-        void disconnect(boolean isActiveDisConnect, BleDevice bleDevice, BluetoothGatt gatt);
     }
 
     private void getDisconnectNext(boolean isActiveDisConnect, BleDevice bleDevice, BluetoothGatt gatt) {
@@ -573,18 +559,8 @@ public class BleConnectHelper1 {
         }
     }
 
-
-    /**
-     * 重连成功监听
-     */
-    private OnReconnectSuccessListener reconnectSuccessListener;
-
     public void setReconnectSuccessListener(OnReconnectSuccessListener reconnectSuccessListener) {
         this.reconnectSuccessListener = reconnectSuccessListener;
-    }
-
-    public interface OnReconnectSuccessListener {
-        void reconnectSuccess(BleDevice bleDevice);
     }
 
     private void getReconnectSuccessNext(BleDevice bleDevice) {
@@ -593,18 +569,8 @@ public class BleConnectHelper1 {
         }
     }
 
-
-    /**
-     * 重连失败监听
-     */
-    private OnReconnectFailListener reconnectFailListener;
-
     public void setReconnectFailListener(OnReconnectFailListener reconnectFailListener) {
         this.reconnectFailListener = reconnectFailListener;
-    }
-
-    public interface OnReconnectFailListener {
-        void reconnectFail(BleDevice bleDevice);
     }
 
     private void getReconnectFailNext(BleDevice bleDevice) {
@@ -613,18 +579,8 @@ public class BleConnectHelper1 {
         }
     }
 
-
-    /**
-     * 自身设备关闭蓝牙监听
-     */
-    private OnDeviceSelfDisableListener deviceSelfDisableListener;
-
     public void setDeviceSelfDisableListener(OnDeviceSelfDisableListener deviceSelfDisableListener) {
         this.deviceSelfDisableListener = deviceSelfDisableListener;
-    }
-
-    public interface OnDeviceSelfDisableListener {
-        void deviceSelfDisable();
     }
 
     private void getDeviceSelfDisableNext() {
@@ -633,17 +589,8 @@ public class BleConnectHelper1 {
         }
     }
 
-    /**
-     * 设备是否走远监听
-     */
-    private OnDeviceAwayListener deviceAwayListener;
-
     public void setDeviceAwayListener(OnDeviceAwayListener deviceAwayListener) {
         this.deviceAwayListener = deviceAwayListener;
-    }
-
-    public interface OnDeviceAwayListener {
-        void deviceAway(String address, String name);
     }
 
     private void getDeviceAwayNext(String address, String name) {
@@ -661,15 +608,72 @@ public class BleConnectHelper1 {
         this.onCharacteristicChangeListener = charactoristicChangeListener;
     }
 
-    private OnCharacteristicChangeListener onCharacteristicChangeListener;
+    private void getCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        if (onCharacteristicChangeListener != null) {
+            onCharacteristicChangeListener.onCharacteristicChange(gatt, characteristic);
+        }
+    }
+
+    public interface OnScanStartListener {
+        void scanStart();
+    }
+
+    public interface OnScanFinishListener {
+        void scanFinish(BleDevice bleDevice);
+    }
+
+    public interface OnConnectSuccessListener {
+        void connectSuccess(BleDevice bleDevice, BluetoothGatt gatt);
+    }
+
+    public interface OnConnectFailListener {
+        void connectFail(BleDevice bleDevice, String description);
+    }
+
+    public interface OnDisconnectListener {
+        void disconnect(boolean isActiveDisConnect, BleDevice bleDevice, BluetoothGatt gatt);
+    }
+
+    public interface OnReconnectSuccessListener {
+        void reconnectSuccess(BleDevice bleDevice);
+    }
+
+    public interface OnReconnectFailListener {
+        void reconnectFail(BleDevice bleDevice);
+    }
+
+    public interface OnDeviceSelfDisableListener {
+        void deviceSelfDisable();
+    }
+
+    public interface OnDeviceAwayListener {
+        void deviceAway(String address, String name);
+    }
 
     public interface OnCharacteristicChangeListener {
         void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic);
     }
 
-    private void getCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-        if (onCharacteristicChangeListener != null) {
-            onCharacteristicChangeListener.onCharacteristicChange(gatt, characteristic);
+    //重连的hanlder
+    public static class ReconnHandler extends Handler {
+        private WeakReference<BleConnectHelper1> reconnectHelperWeakReference;
+
+        public ReconnHandler(BleConnectHelper1 reconnectHelper) {
+            reconnectHelperWeakReference = new WeakReference<>(reconnectHelper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            super.handleMessage(msg);
+            BleConnectHelper1 connect = reconnectHelperWeakReference.get();
+            switch (msg.what) {
+                case START_TIMER:
+                    String key = (String) msg.obj;//key为蓝牙地址
+                    if (key != null) {
+                        connect.reconnListening(key);
+                    }
+                    break;
+            }
         }
     }
 
