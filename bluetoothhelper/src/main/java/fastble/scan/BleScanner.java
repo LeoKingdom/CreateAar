@@ -7,7 +7,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
-
 import java.util.List;
 import java.util.UUID;
 
@@ -71,6 +70,34 @@ public class BleScanner {
 
         @Override
         public void onScanFinished(List<BleDevice> bleDeviceList) {
+            // if (mBleScanPresenter.ismNeedConnect()) {
+            //     final BleScanAndConnectCallback callback = (BleScanAndConnectCallback)
+            //             mBleScanPresenter.getBleScanPresenterImp();
+            //     if (bleDeviceList == null || bleDeviceList.size() < 1) {
+            //         if (callback != null) {
+            //             callback.onScanFinished(null);
+            //         }
+            //     } else {
+            //         if (callback != null) {
+            //             callback.onScanFinished(bleDeviceList.get(0));
+            //         }
+            //         final List<BleDevice> list = bleDeviceList;
+            //         for (BleDevice device : list) {
+            //             Log.e("macAddress----", device.getMac()+"");
+            //         }
+            //         new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            //             @Override
+            //             public void run() {
+            //                 BleManager.getInstance().connect(list.get(0), callback);
+            //             }
+            //         }, 100);
+            //     }
+            // } else {
+            //     BleScanCallback callback = (BleScanCallback) mBleScanPresenter.getBleScanPresenterImp();
+            //     if (callback != null) {
+            //         callback.onScanFinished(bleDeviceList);
+            //     }
+            // }
             if (mBleScanPresenter.ismNeedConnect()) {
                 final BleScanAndConnectCallback callback = (BleScanAndConnectCallback)
                         mBleScanPresenter.getBleScanPresenterImp();
@@ -83,9 +110,6 @@ public class BleScanner {
                         callback.onScanFinished(bleDeviceList.get(0));
                     }
                     final List<BleDevice> list = bleDeviceList;
-                    for (BleDevice device : list) {
-                        Log.e("macAddress----", device.getMac()+"");
-                    }
                     new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
                         @Override
                         public void run() {

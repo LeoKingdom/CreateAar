@@ -7,11 +7,9 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
-
 import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
@@ -154,7 +152,7 @@ public class BleConnectHelper {
                     checkRssi(bleDevice, address, name);//检查rssi
                     if (bleDevice == null && !connDeviceMap.containsKey(address)) {//如果没扫描到，过段时间继续扫描
                         addReConnectDevice(address, name);//加入重连列表中
-                        startReconnect(address, 2000);//重新连接
+                        startReconnect(address, 10000);//重新连接
                     }
                 }
             }
@@ -163,7 +161,7 @@ public class BleConnectHelper {
             public void onConnectFailed(BleDevice bleDevice, String description) {
                 getConnectFailNext(bleDevice, description);
                 addReConnectDevice(bleDevice.getMac(), bleDevice.getName());//加入重连列表中
-                startReconnect(bleDevice.getMac(), 2000);//重新连接
+                startReconnect(bleDevice.getMac(), 10000);//重新连接
             }
 
             @Override
