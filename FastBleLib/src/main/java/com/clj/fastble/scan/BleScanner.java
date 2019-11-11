@@ -22,7 +22,7 @@ public class BleScanner {
 
     public BleScanner(){}
     public static BleScanner getInstance() {
-        return new BleScanner();
+        return BleScannerHolder.sBleScanner;
     }
 
     private static class BleScannerHolder {
