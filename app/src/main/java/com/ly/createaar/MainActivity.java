@@ -2,6 +2,7 @@ package com.ly.createaar;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.content.ComponentName;
 import android.content.Context;
@@ -229,7 +230,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             otaUpgradeService1 = binder.getService();
             otaUpgradeService1.addHandler(mHandler);
             isBond = true;
-            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:32");
+            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:93");
 //            otaUpgradeService1.connectToDevice(bleDevice.getDevice());
             Log.e("bind---", "ok");
             setCallback();
@@ -618,42 +619,51 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+    }
+
     //connect to device
     public void connect(View view) {
-        Map<String,String> connectMap=new HashMap<>();
-        connectMap.put("88:9E:33:EE:A7:4C","Timy");
-        connectMap.put("88:9E:33:EE:A7:B2","Tiger");
-        BleConnectHelper1 bleConnectHelper1 = BleConnectHelper1.getInstance().init(getApplication(), 0, 1.0);
-        bleConnectHelper1.scanList(connectMap);
-        bleConnectHelper1.setScanFinishListener(new BleConnectHelper1.OnScanFinishListener() {
-            @Override
-            public void scanFinish(fastble.data.BleDevice bleDevice) {
-                Log.e("finish---",bleDevice.getMac()+"");
-            }
-        });
-        bleConnectHelper1.setConnectSuccessListener(new BleConnectHelper1.OnConnectSuccessListener() {
-            @Override
-            public void connectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
-                Log.e("connectSuccess---",bleDevice.getMac()+"");
-            }
-        });
-        bleConnectHelper1.setConnectFailListener(new BleConnectHelper1.OnConnectFailListener() {
-            @Override
-            public void connectFail(BleDevice bleDevice, String description) {
-                Log.e("connectFail----",description);
-            }
-        });
-//        String macAddress = macEt.getText().toString().trim();
-//        if (TextUtils.isEmpty(macAddress)) {
-//            macAddress = "01:02:04:05:A6:16";
-////            macAddress = "01:02:04:05:06:09";
-//        }
-//        if (isBond) {
-//            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:93");
-////            otaUpgradeService1.scanAndConn(macAddress);
-//        } else {
-//            bindMyService(macAddress);
-//        }
+//        Map<String,String> connectMap=new HashMap<>();
+////        connectMap.put("88:9E:33:EE:A7:4C","Timy");
+//        connectMap.put("88:9E:33:EE:A7:7F","Tiger");
+//        BleConnectHelper1 bleConnectHelper1 = BleConnectHelper1.getInstance().init(getApplication(), 0, 1.0);
+//        bleConnectHelper1.scanList(connectMap);
+//        bleConnectHelper1.setScanFinishListener(new BleConnectHelper1.OnScanFinishListener() {
+//            @Override
+//            public void scanFinish(fastble.data.BleDevice bleDevice) {
+//                if (bleDevice!=null)
+//                Log.e("finish---",bleDevice.getMac()+"");
+//            }
+//        });
+//        bleConnectHelper1.setConnectSuccessListener(new BleConnectHelper1.OnConnectSuccessListener() {
+//            @Override
+//            public void connectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
+//                BluetoothDevice device = bleDevice.getDevice();
+//                boolean bond = device.createBond();
+//                Log.e("connectSuccess---",bleDevice.getMac()+"/"+bond);
+//            }
+//        });
+//        bleConnectHelper1.setConnectFailListener(new BleConnectHelper1.OnConnectFailListener() {
+//            @Override
+//            public void connectFail(BleDevice bleDevice, String description) {
+//                Log.e("connectFail----",description);
+//            }
+//        });
+        String macAddress = macEt.getText().toString().trim();
+        if (TextUtils.isEmpty(macAddress)) {
+            macAddress = "88:9E:33:EE:A7:D1";
+//            macAddress = "01:02:04:05:06:09";
+        }
+        if (isBond) {
+            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:d1");
+//            otaUpgradeService1.scanAndConn(macAddress);
+        } else {
+            bindMyService(macAddress);
+        }
     }
 
     public void read(View view) {

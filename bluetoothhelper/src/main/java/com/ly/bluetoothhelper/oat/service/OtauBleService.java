@@ -805,25 +805,28 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                         //0xAB 0x00 0x04 0x03  0x01  0x20 0x03  0x03  0x01 0x0A 0x64 收包回复
                         //帧头 数据-长度 总帧 当前帧 MId  EId  丢包数 之后为丢包序号(上限五包,超过填0xFF)
                         //若出现丢包情况,尚未确定是继续下一帧还是先补包
-                        byte[] losePacketList = DataPacketUtils.losePackets(currentFrameBytes, data);
-                        loseList = losePacketList;
-                        if (isTest) {
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
-                        } else {
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
+                        //帧回复data异常,回复命令以触发再次回复
+                        if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_DATA_I) {
+                            if (data.length < 9) {
+                                byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
+                                byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
+                                byte[] responeOrderBytes = TransformUtils.combineArrays(dataHeadBytes, new byte[]{(byte) 0xFF});
+                                writeBytes(responeOrderBytes);
+                            }else {
+                                byte[] losePacketList = DataPacketUtils.losePackets(currentFrameBytes, data);
+                                loseList = losePacketList;
+                                if (isTest) {
+                                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
+                                } else {
+                                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
+                                }
+                            }
                         }
+
                     }
                 }
 
-                //帧回复data异常,回复命令以触发再次回复
-                if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_DATA_I) {
-                    if (data.length < 9) {
-                        byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
-                        byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
-                        byte[] responeOrderBytes = TransformUtils.combineArrays(dataHeadBytes, new byte[]{(byte) 0xFF});
-                        writeBytes(responeOrderBytes);
-                    }
-                }
+
 
                 //bin回复data异常,回复命令以触发再次回复
                 if (CURRENT_ACTION == ActionUtils.ACTION_OTA_ORDER_I) {
@@ -891,7 +894,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                 totalFrame = initialTotalBytes.length % 4096 != 0 ? ((initialTotalBytes.length / 1024 / 4) + 1) : (initialTotalBytes.length / 1024 / 4);
                 Log.e("initialLength----", initialTotalBytes.length + "/" + totalFrame);
                 if (CURRENT_ACTION == ActionUtils.ACTION_OTA_NEXT_BIN || CURRENT_ACTION == ActionUtils.ACTION_OTA_NOTIFY) {
-                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 100);
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 20);
                 }
 //                else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_NOTIFY){
 //                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 1000);

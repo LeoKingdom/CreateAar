@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -98,6 +97,7 @@ public class BleConnectHelper1 {
 
         @Override
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
+            Log.e("cs----", bleDevice.getMac() + "");
             if (isReConnectDevice(bleDevice.getMac())) {
                 getReconnectSuccessNext(bleDevice);
             } else {
@@ -122,7 +122,7 @@ public class BleConnectHelper1 {
 
         @Override
         public void onDisconnect(boolean isActiveDis, BleDevice device) {
-            Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi());
+            Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi() + "/" + isActiveDis);
             getDisconnectNext(isActiveDis, device, null);
             removeConnectDevice(device.getMac());//从已连接的列表中移除
             if (!isActiveDis) {//不是主动断开的
@@ -215,19 +215,20 @@ public class BleConnectHelper1 {
                 }
                 for (String m : needConnectMap) {
                     String mac = m;
-                    for (String deviceMac : macaddrList) {
-                        if (mac.equalsIgnoreCase(deviceMac)) {
-                            BleDevice bleDevice = bluetoothHelper.getBleDeviceFromMac(mac);
-                            getScanFinishNext(bleDevice);
-                            checkRssi(bleDevice, mac, macList.get(mac));//检查rssi
-                            bluetoothHelper.connect(deviceMac, bleDevice.getName(), connectListener);
+                    if (macaddrList.contains(mac)) {
+                        BleDevice bleDevice = bluetoothHelper.getBleDeviceFromMac(mac);
+                        getScanFinishNext(bleDevice);
+                        checkRssi(bleDevice, mac, macList.get(mac));//检查rssi
+                        bluetoothHelper.connect(mac, bleDevice.getName(), connectListener);
+                    } else {
+                        checkRssi(null, mac, macList.get(mac));//检查rssi
+                        if (!connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
+                            addReConnectDevice(mac, macList.get(mac));//加入重连列表中
+                            startReconnect(mac, BASE_SCAN_TIME);//重新连接
+                            getScanFinishNext(null);//
                         }
                     }
-                    if (!macaddrList.contains(mac) && !connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
-                        addReConnectDevice(mac, macList.get(mac));//加入重连列表中
-                        startReconnect(mac, BASE_SCAN_TIME);//重新连接
-                        getScanFinishNext(null);//
-                    }
+
                 }
 
             }
@@ -437,11 +438,13 @@ public class BleConnectHelper1 {
      */
     private void reconnListening(String key) {
         Map<String, String> reconnDeviceMap = getReconnDeviceMap();
+        Set<Map.Entry<String, String>> keys = reconnDeviceMap.entrySet();
         Map<String, String> scanMap = new HashMap<>();
-        if (reconnDeviceMap.size() > 0) {//遍历需要重连的设备
-            for (String key1 : reconnDeviceMap.keySet()) {
+        if (reconnDeviceMap != null && reconnDeviceMap.size() > 0) {//遍历需要重连的设备
+            for (Map.Entry<String, String> entry : keys) {
+                String key1 = entry.getKey();
                 if (key1.equals(key)) {
-                    scanMap.put(key1, Objects.requireNonNull(reconnDeviceMap.get(key1)));
+                    scanMap.put(key1, entry.getValue());
                 }
             }
             scanList(scanMap);

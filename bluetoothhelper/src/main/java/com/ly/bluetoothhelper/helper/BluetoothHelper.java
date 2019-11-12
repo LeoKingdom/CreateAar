@@ -410,6 +410,8 @@ public class BluetoothHelper {
      */
     public void connect(String mac, String name, BleConnectListener connectListener) {
         this.connectListener = connectListener;
+        BleScanRuleConfig config=new BleScanRuleConfig.Builder().setAutoConnect(true).build();
+        bleManager.initScanRule(config);
         bleManager.connect(mac, connectCallback);
     }
 
@@ -420,6 +422,8 @@ public class BluetoothHelper {
      */
     public void connect(BleDevice bleDevice, BleConnectListener connectListener) {
         this.connectListener = connectListener;
+        BleScanRuleConfig config=new BleScanRuleConfig.Builder().setAutoConnect(true).build();
+        bleManager.initScanRule(config);
         bleManager.connect(bleDevice, connectCallback);
     }
 
@@ -458,7 +462,6 @@ public class BluetoothHelper {
          */
         @Override
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt, int status) {
-            Log.e("conn----", bleDevice.getMac() + "/" + bleDevice.getName());
             if (connectListener != null) {
                 connectListener.onConnectSuccess(bleDevice, gatt);
             }
