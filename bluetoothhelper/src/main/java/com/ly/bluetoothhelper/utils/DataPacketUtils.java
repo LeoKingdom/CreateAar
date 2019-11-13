@@ -3,12 +3,8 @@ package com.ly.bluetoothhelper.utils;
 import android.content.Context;
 import android.util.Log;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * author: LingYun
@@ -271,7 +267,7 @@ public class DataPacketUtils {
         byte[] lostPacketBytes = null;
         int resLength = responseByte.length;
         byte loseCurrentByte = responseByte[resLength - 1];
-        if (responseByte.length>8) {
+        if (responseByte.length >= 8) {
             byte loseTotalByte = responseByte[7];
             if (loseCurrentByte == (byte) 0x00 && loseTotalByte == (byte) 0x00) {
                 //未丢包

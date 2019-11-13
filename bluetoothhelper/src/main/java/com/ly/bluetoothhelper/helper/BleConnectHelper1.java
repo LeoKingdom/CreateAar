@@ -8,6 +8,7 @@ import android.os.Message;
 import android.util.Log;
 
 import java.lang.ref.WeakReference;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +31,7 @@ import fastble.utils.BleLog;
  */
 public class BleConnectHelper1 {
     //action String
+    private static final String TAG = "BluetoothService";
     public static final String BLE_SCAN_START = "ble.scan.start";
     public static final String BLE_SCAN_FINISH = "ble.scan.finish";
     public static final String BLE_CONNECT_SUCCESS = "ble.conn.success";
@@ -97,7 +99,6 @@ public class BleConnectHelper1 {
 
         @Override
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
-            Log.e("cs----", bleDevice.getMac() + "");
             if (isReConnectDevice(bleDevice.getMac())) {
                 getReconnectSuccessNext(bleDevice);
             } else {
@@ -122,7 +123,7 @@ public class BleConnectHelper1 {
 
         @Override
         public void onDisconnect(boolean isActiveDis, BleDevice device) {
-            Log.e("disConn----", device.getMac() + "/" + device.getName() + "/" + device.getRssi() + "/" + isActiveDis);
+
             getDisconnectNext(isActiveDis, device, null);
             removeConnectDevice(device.getMac());//从已连接的列表中移除
             if (!isActiveDis) {//不是主动断开的
@@ -203,29 +204,47 @@ public class BleConnectHelper1 {
     }
 
     public void scanList(Map<String, String> macList) {
+        if (macList==null||macList.size()==0){
+            return;
+        }
         macaddrList.clear();
         for (Map.Entry entry : macList.entrySet()) {
-            needConnectMap.add(entry.getKey().toString());
+            String macKey = entry.getKey().toString();
+            needConnectMap.add(macKey);
+            if (connDeviceMap.containsKey(macKey)) {
+                removeConnectDevice(macKey);//先移除掉，因为重新开始了
+            }
+            if (reconnDeviceMap.containsKey(macKey)) {
+                removeReConnectDevice(macKey);//先移除掉，因为重新开始了
+            }
+
         }
         bluetoothHelper.scan(new BluetoothHelper.BleScanListener() {
             @Override
             public void onScanFinished(List<BleDevice> bleDeviceList) {
                 for (BleDevice device : bleDeviceList) {
-                    macaddrList.add(device.getMac());
+                    macaddrList.add(device.getMac().toUpperCase());
                 }
                 for (String m : needConnectMap) {
                     String mac = m;
-                    if (macaddrList.contains(mac)) {
-                        BleDevice bleDevice = bluetoothHelper.getBleDeviceFromMac(mac);
-                        getScanFinishNext(bleDevice);
-                        checkRssi(bleDevice, mac, macList.get(mac));//检查rssi
-                        bluetoothHelper.connect(mac, bleDevice.getName(), connectListener);
-                    } else {
-                        checkRssi(null, mac, macList.get(mac));//检查rssi
-                        if (!connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
-                            addReConnectDevice(mac, macList.get(mac));//加入重连列表中
-                            startReconnect(mac, BASE_SCAN_TIME);//重新连接
-                            getScanFinishNext(null);//
+                    if (!bleManager.isConnected(mac)) {
+                        if (macaddrList.contains(mac)) {
+                            BleDevice bleDevice = null;
+                            for (BleDevice device : bleDeviceList) {
+                                if (device.getMac().equalsIgnoreCase(mac)) {
+                                    bleDevice = device;
+                                }
+                            }
+                            getScanFinishNext(bleDevice);
+                            bluetoothHelper.connect(mac, bleDevice.getName(), connectListener);
+                            checkRssi(bleDevice, mac, macList.get(mac));//检查rssi
+                        } else {
+                            checkRssi(null, mac, macList.get(mac));//检查rssi
+                            if (!connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
+                                addReConnectDevice(mac, macList.get(mac));//加入重连列表中
+                                startReconnect(mac, BASE_SCAN_TIME);//重新连接
+                                getScanFinishNext(null);//
+                            }
                         }
                     }
 
@@ -240,19 +259,7 @@ public class BleConnectHelper1 {
 
             @Override
             public void onScanning(BleDevice device) {
-                if (device != null) {
-                    String mac = device.getMac();
-                    Log.e("scanning-----", mac + "");
-                    for (Map.Entry entry : macList.entrySet()) {
 
-                    }
-//                    if (needConnectMap.contains(mac)) {
-//                        bluetoothHelper.connect(device, connectListener);
-//                        getScanFinishNext(device);
-//                        checkRssi(device, mac, macList.get(mac));//检查rssi
-//
-//                    }
-                }
             }
 
             @Override
@@ -334,7 +341,7 @@ public class BleConnectHelper1 {
             @Override
             public void onBleDisable() {
                 //蓝牙断开连接了
-                getDeviceSelfDisableNext();
+                getDeviceSelfDisableNext(address);
             }
         });
     }
@@ -346,17 +353,21 @@ public class BleConnectHelper1 {
      * @param address   蓝牙mac地址
      */
     private void checkRssi(BleDevice bleDevice, String address, String name) {
+//        Log.e(TAG,"deviceInfo----"+ bleDevice + "/" + address + "/" + readRssiMap.size() + "/" + connDeviceMap.size());
         if (bleDevice == null && !connDeviceMap.containsKey(address)) {//如果扫描不到了
             if (readRssiMap.containsKey(address)) {//之前有存rssi的话，说明之前扫描到过
                 Integer valueRssi = readRssiMap.get(address);
                 double distance = getDistance(valueRssi);//判断距离
+                distance=new BigDecimal(distance).setScale(3,BigDecimal.ROUND_HALF_UP).doubleValue();
+//                Log.e(TAG,"distance----"+ distance + "/" + maxDistance);
                 if (distance > maxDistance) {//如果距离大于10米了，那就走远了
                     getDeviceAwayNext(address, name);
                 } else {
-                    deviceSelfDisableListener.deviceSelfDisable();
+                    deviceSelfDisableListener.deviceSelfDisable(address);
                 }
             }
-        } else {//说明还能扫描到
+        }
+        if (bleDevice != null) {//说明还能扫描到
             readRssiMap.put(bleDevice.getMac(), bleDevice.getRssi());
         }
     }
@@ -375,7 +386,6 @@ public class BleConnectHelper1 {
                         bluetoothHelper.readRssi(device.getValue(), new BluetoothHelper.RemoteRssiListener() {
                             @Override
                             public void onRemoteRssi(int rssi) {
-                                Log.e("rssi----" + device.getKey(), rssi + "/" + getDistance(rssi));
                                 readRssiMap.put(device.getKey(), rssi);
                             }
 
@@ -586,9 +596,9 @@ public class BleConnectHelper1 {
         this.deviceSelfDisableListener = deviceSelfDisableListener;
     }
 
-    private void getDeviceSelfDisableNext() {
+    private void getDeviceSelfDisableNext(String mac) {
         if (deviceSelfDisableListener != null) {
-            deviceSelfDisableListener.deviceSelfDisable();
+            deviceSelfDisableListener.deviceSelfDisable(mac);
         }
     }
 
@@ -646,7 +656,7 @@ public class BleConnectHelper1 {
     }
 
     public interface OnDeviceSelfDisableListener {
-        void deviceSelfDisable();
+        void deviceSelfDisable(String mac);
     }
 
     public interface OnDeviceAwayListener {

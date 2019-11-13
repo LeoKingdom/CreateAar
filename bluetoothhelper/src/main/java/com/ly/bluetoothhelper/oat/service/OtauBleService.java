@@ -533,9 +533,9 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                         currentFrameBytes = DataPacketUtils.sortEachFrame(initialTotalBytes, currentFrame, totalFrame);
                         currentTotalPacket = currentFrameBytes.length % 20 == 0 ? currentFrameBytes.length / 20 : currentFrameBytes.length / 20 + 1;
                         Log.e("curr---", currentFrameBytes.length + "/" + currentTotalPacket);
-                        if (progressCallback != null) {
-                            progressCallback.setMax(currentTotalPacket);
-                        }
+//                        if (progressCallback != null) {
+//                            progressCallback.setMax(currentTotalPacket);
+//                        }
                         if (isReTransTest && isReconnect) {
                             int length = currentFrameBytes.length - 20 * currentPacket;
                             int offSet = currentPacket == 0 ? 0 : currentPacket - 1;
@@ -559,7 +559,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                             }
                             if (currentBin < fileNameList.size()) {
                                 currentBin++;
-                                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NEXT_BIN, 2000);
+                                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_NEXT_BIN, 50);
                             }
                             if (isReconnect) {//如果是重传,清除sp缓存信息
                                 SharePreferenceUtils.setValue(OtauBleService.this, "data-" + macAddress, "");
@@ -568,7 +568,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                         }
                         currentFrame++;
                         if (currentFrame <= totalFrame) {
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 0);
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 10);
                             if (dataCallback != null) {
                                 dataCallback.nextFrame(currentFrame, totalFrame);
                             }
@@ -577,7 +577,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                     } else {
                         if (loseList.length == 1) { //丢包过多,需重发此帧
                             toast("丢包过多,重新传输");
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 100);
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 10);
                         } else {
                             //发送丢失的包,不需要重发帧头
                             writeBytes(loseList);
@@ -699,7 +699,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                 if (CURRENT_ACTION == ActionUtils.ACTION_OTA_ORDER_I) {
                     handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_VALIFY_OUTTIME, 60000);
                 } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_HEAD_I) {
-                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 0);
+                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 10);
                 } else if (CURRENT_ACTION == ActionUtils.ACTION_OTA_DATA_DATA_I) {
                     if (isReconnect) {
                         currentPacket = reCurrentPacket + current;
@@ -816,9 +816,9 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
                                 byte[] losePacketList = DataPacketUtils.losePackets(currentFrameBytes, data);
                                 loseList = losePacketList;
                                 if (isTest) {
-                                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
+                                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 10);
                                 } else {
-                                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 0);
+                                    handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_LOSE_I, 10);
                                 }
                             }
                         }
