@@ -23,6 +23,8 @@ public class BleMsg {
     public static final int MSG_CHA_NOTIFY_DATA_CHANGE = 0x13;
     public static final String KEY_NOTIFY_BUNDLE_STATUS = "notify_status";
     public static final String KEY_NOTIFY_BUNDLE_VALUE = "notify_value";
+    public static final String KEY_NOTIFY_BUNDLE_KEY = "notify_mac";
+
 
     // Indicate
     public static final int MSG_CHA_INDICATE_START = 0x21;
@@ -30,6 +32,7 @@ public class BleMsg {
     public static final int MSG_CHA_INDICATE_DATA_CHANGE = 0x23;
     public static final String KEY_INDICATE_BUNDLE_STATUS = "indicate_status";
     public static final String KEY_INDICATE_BUNDLE_VALUE = "indicate_value";
+    public static final String KEY_INDICATE_BUNDLE_KEY = "indicate_mac";
 
     // Write
     public static final int MSG_CHA_WRITE_START = 0x31;

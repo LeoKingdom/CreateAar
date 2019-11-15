@@ -9,5 +9,5 @@ public abstract class BleIndicateCallback extends BleBaseCallback{
 
     public abstract void onIndicateFailure(BleException exception);
 
-    public abstract void onCharacteristicChanged(byte[] data);
+    public abstract void onCharacteristicChanged(String mac,byte[] data);
 }

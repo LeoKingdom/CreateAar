@@ -54,6 +54,11 @@ public class TransformUtils {
         return str;
     }
 
+    public static byte[] int2ByteArray(int num){
+        String hexString=int2hex(num);
+        return hexToByteArray(hexString);
+    }
+
     /**
      * 字符串转为16进制字节数组
      *

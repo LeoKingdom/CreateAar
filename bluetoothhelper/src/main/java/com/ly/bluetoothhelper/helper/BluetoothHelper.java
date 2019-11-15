@@ -212,6 +212,10 @@ public class BluetoothHelper {
         BleManager.getInstance().cancelScan();
     }
 
+    public BleUuidHelper getUuidHelper() {
+        return uuidHelper;
+    }
+
     /**
      * 各种UUID初始化
      *
@@ -639,7 +643,6 @@ public class BluetoothHelper {
      */
     public void setNotify(BleDevice bleDevice, BleNotifyListener listener) {
         if (uuidHelper == null) uuidHelper = new BleUuidHelper();
-        //必须设置true参数，看源码就懂了
         BleManager.getInstance().notify(bleDevice, uuidHelper.getServiceUuid(), uuidHelper.getNotiyUuid(), false, new BleNotifyCallback() {
             // 打开通知操作成功
             @Override
@@ -659,9 +662,9 @@ public class BluetoothHelper {
 
             // 打开通知后，设备发过来的数据将在这里出现
             @Override
-            public void onCharacteristicChanged(byte[] data) {//对应了onCharacteristicChanged的回调
+            public void onCharacteristicChanged(String mac,byte[] data) {//对应了onCharacteristicChanged的回调
                 if (listener != null) {
-                    listener.onCharacteristicChanged(data);
+                    listener.onCharacteristicChanged(mac,data);
                 }
             }
         });
@@ -673,7 +676,7 @@ public class BluetoothHelper {
 
         void onNotifyFailed(BleException e);
 
-        void onCharacteristicChanged(byte[] data);
+        void onCharacteristicChanged(String mac,byte[] data);
     }
 
 

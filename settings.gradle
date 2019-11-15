@@ -1,1 +1,1 @@
-include ':app', ':bluetoothhelper', ':FastBleLib'
+include ':app', ':bluetoothhelper'

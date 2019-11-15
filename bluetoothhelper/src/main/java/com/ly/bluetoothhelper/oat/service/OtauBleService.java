@@ -772,7 +772,7 @@ public class OtauBleService extends BLEService implements GaiaUpgradeManager.Gai
             }
 
             @Override
-            public void onCharacteristicChanged(byte[] data) {
+            public void onCharacteristicChanged(String mac,byte[] data) {
                 Log.e("notifyData----", TransformUtils.bytesToHexString(data));
                 if (notifyCallback != null) {
                     notifyCallback.charactoristicChange(CURRENT_ACTION, data);

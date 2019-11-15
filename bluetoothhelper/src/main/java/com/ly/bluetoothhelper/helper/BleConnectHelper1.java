@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 
 import fastble.BleManager;
 import fastble.data.BleDevice;
@@ -30,8 +31,6 @@ import fastble.utils.BleLog;
  * version: 1.0
  */
 public class BleConnectHelper1 {
-    //action String
-    private static final String TAG = "BluetoothService";
     public static final String BLE_SCAN_START = "ble.scan.start";
     public static final String BLE_SCAN_FINISH = "ble.scan.finish";
     public static final String BLE_CONNECT_SUCCESS = "ble.conn.success";
@@ -45,6 +44,8 @@ public class BleConnectHelper1 {
     public static final int BLE_DISCONNECT_I = 0x1005;
     public static final int BLE_NOT_FOUND_I = 0x1006;
     public static final int START_TIMER = 0;
+    //action String
+    private static final String TAG = "BluetoothService";
     private static final int BASE_SCAN_TIME = 10000;
     private static BleConnectHelper1 bleConnectHelper;
     private BleManager bleManager;
@@ -94,7 +95,31 @@ public class BleConnectHelper1 {
      * 设备是否走远监听
      */
     private OnDeviceAwayListener deviceAwayListener;
+    /**
+     * 特征值变化监听
+     */
     private OnCharacteristicChangeListener onCharacteristicChangeListener;
+    /**
+     * 通知开启成功监听
+     */
+    private NotifySuccessListener notifySuccessListener;
+    /**
+     * 通知开启失败监听
+     */
+    private NotifyFailListener notifyFailListener;
+    /**
+     * 通知回复(特征值变化)监听
+     */
+    private NotifyCharacteristicChangeListener notifyCharacteristicChangeListener;
+    /**
+     * 成功写入数据监听
+     */
+    private WriteSuccessListener writeSuccessListener;
+    /**
+     * 写入数据失败监听
+     */
+    private WriteFailListener writeFailListener;
+
     private BluetoothHelper.BleConnectListener connectListener = new BluetoothHelper.BleConnectListener() {
 
         @Override
@@ -203,8 +228,34 @@ public class BleConnectHelper1 {
         return this;
     }
 
+    /**
+     * 初始化各种uuid
+     *
+     * @param service_uuids  服务uuid组
+     * @param service_uuid   指定服务uuid
+     * @param notify_uuid    通知uuid
+     * @param read_uuid      读uuid
+     * @param read_cha_uuid  .
+     * @param write_uuid     .
+     * @param write_cha_uuid .
+     */
+    public void initUuId(UUID[] service_uuids, String service_uuid, String notify_uuid, String read_uuid, String read_cha_uuid, String write_uuid, String write_cha_uuid) {
+        bluetoothHelper.initUuid(null,
+                service_uuid,
+                notify_uuid,
+                read_uuid,
+                read_cha_uuid,
+                write_uuid,
+                write_cha_uuid);
+    }
+
+    /**
+     * 扫描设备
+     *
+     * @param macList 需要匹配的设备list
+     */
     public void scanList(Map<String, String> macList) {
-        if (macList==null||macList.size()==0){
+        if (macList == null || macList.size() == 0) {
             return;
         }
         macaddrList.clear();
@@ -225,8 +276,7 @@ public class BleConnectHelper1 {
                 for (BleDevice device : bleDeviceList) {
                     macaddrList.add(device.getMac().toUpperCase());
                 }
-                for (String m : needConnectMap) {
-                    String mac = m;
+                for (String mac : needConnectMap) {
                     if (!bleManager.isConnected(mac)) {
                         if (macaddrList.contains(mac)) {
                             BleDevice bleDevice = null;
@@ -240,11 +290,11 @@ public class BleConnectHelper1 {
                             checkRssi(bleDevice, mac, macList.get(mac));//检查rssi
                         } else {
                             checkRssi(null, mac, macList.get(mac));//检查rssi
-                            if (!connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
-                                addReConnectDevice(mac, macList.get(mac));//加入重连列表中
-                                startReconnect(mac, BASE_SCAN_TIME);//重新连接
-                                getScanFinishNext(null);//
-                            }
+//                            if (!connDeviceMap.containsKey(mac)) {//如果没扫描到，过段时间继续扫描
+                            addReConnectDevice(mac, macList.get(mac));//加入重连列表中
+                            startReconnect(mac, BASE_SCAN_TIME);//重新连接
+                            getScanFinishNext(null);//
+//                            }
                         }
                     }
 
@@ -268,6 +318,103 @@ public class BleConnectHelper1 {
             }
         });
     }
+
+    /**
+     * 判断是否连接
+     *
+     * @param macAddress 蓝牙地址
+     * @return 返回true or false
+     */
+    public boolean isConnected(String macAddress) {
+        return bleManager.isConnected(macAddress);
+    }
+
+    /**
+     * 根据mac获取当前设备(通常为当前需要进行通信的设备)
+     *
+     * @param mac 蓝牙地址
+     * @return 设备
+     */
+    public BleDevice getCurrentDevice(String mac) {
+        if (connDeviceMap.containsKey(mac)) {
+            return connDeviceMap.get(mac);
+        }
+        return null;
+    }
+
+    /**
+     * 开启蓝牙通知
+     *
+     * @param macAddress 蓝牙地址
+     */
+    public void openNotify(String macAddress) {
+        if (bluetoothHelper.getUuidHelper() == null) {
+            BleDevice device = connDeviceMap.get(macAddress);
+            notifyFail(device, "uuid is not initialize,please initialization!");
+            return;
+        }
+        if (connDeviceMap.containsKey(macAddress)) {
+            BleDevice device = connDeviceMap.get(macAddress);
+            notify(device);
+        }
+    }
+
+    public void openNotify(BleDevice device){
+        if (bluetoothHelper.getUuidHelper() == null) {
+            notifyFail(device, "uuid is not initialize,please initialization!");
+            return;
+        }
+        notify(device);
+    }
+
+    private void notify(BleDevice device){
+        bluetoothHelper.setNotify(device, new BluetoothHelper.BleNotifyListener() {
+            @Override
+            public void onNotifySuccess() {
+                notifySuccess(device);
+            }
+
+            @Override
+            public void onNotifyFailed(BleException e) {
+                notifyFail(device,e.getDescription());
+            }
+
+            @Override
+            public void onCharacteristicChanged(String mac,byte[] data) {
+                notifyChange(mac,data);
+            }
+        });
+
+    }
+
+    /**
+     * 写入数据(十六进制字节数组)
+     *
+     * @param macAddress 蓝牙地址
+     * @param data       数据
+     */
+    public void writeData(String macAddress, byte[] data) {
+        if (bluetoothHelper.getUuidHelper() == null) {
+            BleDevice device = connDeviceMap.get(macAddress);
+            notifyFail(device, "uuid is not initialize,please initialization!");
+            return;
+        }
+        if (connDeviceMap.containsKey(macAddress)) {
+            BleDevice device = connDeviceMap.get(macAddress);
+            bluetoothHelper.write(device, data, new BluetoothHelper.WriteListener() {
+                @Override
+                public void onWriteSuccess(int current, int total, byte[] justWrite) {
+                    writeSuccess(current, total, justWrite);
+                }
+
+                @Override
+                public void onWriteFailure(BleException exception) {
+                    writeFail(exception.getDescription());
+                }
+            });
+        }
+    }
+
 
     public void openVirtualLeash(boolean isFuzzzy, String address, String name) {
         needConnectMap.add(address);
@@ -353,16 +500,17 @@ public class BleConnectHelper1 {
      * @param address   蓝牙mac地址
      */
     private void checkRssi(BleDevice bleDevice, String address, String name) {
-//        Log.e(TAG,"deviceInfo----"+ bleDevice + "/" + address + "/" + readRssiMap.size() + "/" + connDeviceMap.size());
-        if (bleDevice == null && !connDeviceMap.containsKey(address)) {//如果扫描不到了
+        Log.e(TAG, "deviceInfo----" + bleDevice + "/" + address + "/" + readRssiMap.size() + "/" + connDeviceMap.size());
+        if (bleDevice == null) {//如果扫描不到了
             if (readRssiMap.containsKey(address)) {//之前有存rssi的话，说明之前扫描到过
                 Integer valueRssi = readRssiMap.get(address);
                 double distance = getDistance(valueRssi);//判断距离
-                distance=new BigDecimal(distance).setScale(3,BigDecimal.ROUND_HALF_UP).doubleValue();
-//                Log.e(TAG,"distance----"+ distance + "/" + maxDistance);
+                distance = new BigDecimal(distance).setScale(3, BigDecimal.ROUND_HALF_UP).doubleValue();
+                Log.e(TAG, "distance----" + distance + "/" + maxDistance);
                 if (distance > maxDistance) {//如果距离大于10米了，那就走远了
                     getDeviceAwayNext(address, name);
-                } else {
+                }
+                if (distance < 1.0) { //1米范围内扫描不到,统一定义为离线
                     deviceSelfDisableListener.deviceSelfDisable(address);
                 }
             }
@@ -398,7 +546,7 @@ public class BleConnectHelper1 {
                 }
             }
         };
-        timer.schedule(timerTask, 0, 5000);
+        timer.schedule(timerTask, 0, 2000);
     }
 
     /**
@@ -612,6 +760,56 @@ public class BleConnectHelper1 {
         }
     }
 
+    private void notifySuccess(BleDevice device) {
+        if (notifySuccessListener != null) {
+            notifySuccessListener.notifySuccess(device);
+        }
+    }
+
+    private void notifyFail(BleDevice device, String err) {
+        if (notifyFailListener != null) {
+            notifyFailListener.notifyFail(device,err);
+        }
+    }
+
+    private void notifyChange(String mac,byte[] data) {
+        if (notifyCharacteristicChangeListener != null) {
+            notifyCharacteristicChangeListener.characteristicChange(mac,data);
+        }
+    }
+
+    private void writeSuccess(int crr, int tl, byte[] data) {
+        if (writeSuccessListener != null) {
+            writeSuccessListener.writeSuccess(crr, tl, data);
+        }
+    }
+
+    private void writeFail(String err) {
+        if (writeFailListener != null) {
+            writeFailListener.writeFail(err);
+        }
+    }
+
+    public void setNotifySuccessListener(NotifySuccessListener notifySuccessListener) {
+        this.notifySuccessListener = notifySuccessListener;
+    }
+
+    public void setNotifyFailListener(NotifyFailListener notifyFailListener) {
+        this.notifyFailListener = notifyFailListener;
+    }
+
+    public void setNotifyCharacteristicChangeListener(NotifyCharacteristicChangeListener notifyCharacteristicChangeListener) {
+        this.notifyCharacteristicChangeListener = notifyCharacteristicChangeListener;
+    }
+
+    public void setWriteSuccessListener(WriteSuccessListener writeSuccessListener) {
+        this.writeSuccessListener = writeSuccessListener;
+    }
+
+    public void setWriteFailListener(WriteFailListener writeFailListener) {
+        this.writeFailListener = writeFailListener;
+    }
+
     /**
      * 设备返回来的数据变化
      *
@@ -665,6 +863,26 @@ public class BleConnectHelper1 {
 
     public interface OnCharacteristicChangeListener {
         void onCharacteristicChange(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic);
+    }
+
+    public interface NotifySuccessListener {
+        void notifySuccess(BleDevice device);
+    }
+
+    public interface NotifyFailListener {
+        void notifyFail(BleDevice device, String err);
+    }
+
+    public interface NotifyCharacteristicChangeListener {
+        void characteristicChange(String mac,byte[] data);
+    }
+
+    public interface WriteSuccessListener {
+        void writeSuccess(int current, int total, byte[] packet);
+    }
+
+    public interface WriteFailListener {
+        void writeFail(String err);
     }
 
     //重连的hanlder

@@ -424,10 +424,6 @@ public class BleBluetooth {
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
-            for (BluetoothGattDescriptor c:characteristic.getDescriptors()){
-
-            Log.e("ctChange----", Arrays.toString(c.getValue()));
-            }
             Iterator iterator = bleNotifyCallbackHashMap.entrySet().iterator();
             while (iterator.hasNext()) {
                 Map.Entry entry = (Map.Entry) iterator.next();
@@ -442,6 +438,7 @@ public class BleBluetooth {
                             message.obj = bleNotifyCallback;
                             Bundle bundle = new Bundle();
                             bundle.putByteArray(BleMsg.KEY_NOTIFY_BUNDLE_VALUE, characteristic.getValue());
+                            bundle.putString(BleMsg.KEY_NOTIFY_BUNDLE_KEY,gatt.getDevice().getAddress());
                             message.setData(bundle);
                             handler.sendMessage(message);
                         }
@@ -463,6 +460,7 @@ public class BleBluetooth {
                             message.obj = bleIndicateCallback;
                             Bundle bundle = new Bundle();
                             bundle.putByteArray(BleMsg.KEY_INDICATE_BUNDLE_VALUE, characteristic.getValue());
+                            bundle.putString(BleMsg.KEY_INDICATE_BUNDLE_KEY,gatt.getDevice().getAddress());
                             message.setData(bundle);
                             handler.sendMessage(message);
                         }

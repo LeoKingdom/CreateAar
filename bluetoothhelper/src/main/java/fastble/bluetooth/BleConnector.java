@@ -77,8 +77,9 @@ public class BleConnector {
                         BleNotifyCallback notifyCallback = (BleNotifyCallback) msg.obj;
                         Bundle bundle = msg.getData();
                         byte[] value = bundle.getByteArray(BleMsg.KEY_NOTIFY_BUNDLE_VALUE);
+                        String macAddress=bundle.getString(BleMsg.KEY_NOTIFY_BUNDLE_KEY);
                         if (notifyCallback != null) {
-                            notifyCallback.onCharacteristicChanged(value);
+                            notifyCallback.onCharacteristicChanged(macAddress,value);
                         }
                         break;
                     }
@@ -110,8 +111,9 @@ public class BleConnector {
                         BleIndicateCallback indicateCallback = (BleIndicateCallback) msg.obj;
                         Bundle bundle = msg.getData();
                         byte[] value = bundle.getByteArray(BleMsg.KEY_INDICATE_BUNDLE_VALUE);
+                        String mac=bundle.getString(BleMsg.KEY_INDICATE_BUNDLE_KEY);
                         if (indicateCallback != null) {
-                            indicateCallback.onCharacteristicChanged(value);
+                            indicateCallback.onCharacteristicChanged(mac,value);
                         }
                         break;
                     }
