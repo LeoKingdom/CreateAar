@@ -8,5 +8,5 @@ package com.ly.bluetoothhelper.callbacks;
  */
 public interface ProgressCallback extends BaseCallback{
     void setMax(int max);
-    void setProgress(float progress,int currentPacket,int currentFrame,int currentBin);
+    void setProgress(float progress,int currentPacket,int totalFrame,int currentFrame,int currentBin,int totalBin);
 }

@@ -45,7 +45,7 @@ public class ZipUtils {
                 File folder = new File(outpathstring + File.separator + szname);
                 folder.mkdirs();
             } else {
-                Log.e(tag,outpathstring + File.separator + szname);
+//                Log.e(tag,outpathstring + File.separator + szname);
                 File file = new File(outpathstring + File.separator + szname);
                 if (!file.exists()){
                     Log.e(tag, "create the file:" + outpathstring + file.separator + szname);

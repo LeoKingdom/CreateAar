@@ -8,10 +8,20 @@ package com.ly.bluetoothhelper.callbacks;
  * <p>
  * 激活esim卡回调
  */
-public interface EsimActiveCallback {
-    void noDevice();
+public abstract class EsimActiveCallback extends BaseBleCallback{
+    /**
+     * 蓝牙地址非法
+     */
+    public  void macInvalidate(){}
 
-    void activeSuccess(Object object);
+    /**
+     * 未找到设备
+     */
+   public void deviceNotFound(){}
 
-    void activeFail(String error);
+    /**
+     * 文件错误
+     */
+   public void fileError(){}
+
 }

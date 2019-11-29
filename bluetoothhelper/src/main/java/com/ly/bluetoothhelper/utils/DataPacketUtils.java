@@ -21,13 +21,17 @@ public class DataPacketUtils {
      */
     public static byte[] currentPacket(byte[] datas, int curr, int total) {
         byte[] eachFrameBytes = null;
-        if (curr == total) {
-            //最后一帧,不一定是4kb
-            int lastPacketLenght = datas.length - (total - 1) * 4 * 1024;
-            eachFrameBytes = TransformUtils.subBytes(datas, (curr - 1) * 4 * 1024, lastPacketLenght);
+        if (datas.length > 4096) {
+            if (curr == total) {
+                //最后一帧,不一定是4kb
+                int lastPacketLenght = datas.length - (total - 1) * 4 * 1024;
+                eachFrameBytes = TransformUtils.subBytes(datas, (curr - 1) * 4 * 1024, lastPacketLenght);
+            } else {
+                //每一帧,长度为4kb
+                eachFrameBytes = TransformUtils.subBytes(datas, (curr - 1) * 4 * 1024, 4 * 1024);
+            }
         } else {
-            //每一帧,长度为4kb
-            eachFrameBytes = TransformUtils.subBytes(datas, (curr - 1) * 4 * 1024, 4 * 1024);
+            eachFrameBytes = datas;
         }
         return eachFrameBytes;
     }
@@ -72,7 +76,7 @@ public class DataPacketUtils {
         }
         byte crcByte = CRCCheckUtils.calcCrc8(eachFrameBytes);
         if (isTrue) {
-            lastBytes = TransformUtils.combineArrays(lastBytes, new byte[]{(byte) num1, crcByte});
+            lastBytes = TransformUtils.combineArrays(lastBytes, new byte[]{(byte) (num1+1), crcByte});
         } else {
             lastBytes = TransformUtils.combineArrays(lastBytes, new byte[]{crcByte});
         }
@@ -252,6 +256,17 @@ public class DataPacketUtils {
         frameOrderByte[5] = TransformUtils.hexToByte("20");
         frameOrderByte[6] = TransformUtils.hexToByte("03");
         return frameOrderByte;
+    }
+
+    /**
+     * 文件字节数少于13,不需要分包,直接在帧头末尾拼接即可
+     *
+     * @param data
+     * @return
+     */
+    public static byte[] eachFrameBytes(byte[] data) {
+        byte[] headBytes = new byte[]{-85, 0, (byte) data.length, 0, 0, (byte) 0x20, (byte) 0x03};
+        return TransformUtils.combineArrays(headBytes, data);
     }
 
     //0xAB 0x00 0x04 0x03  0x01  0x20 0x03  0x03  0x01 0x0A 0x64 收包回复

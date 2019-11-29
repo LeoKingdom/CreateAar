@@ -11,6 +11,11 @@ import android.util.Log;
 
 import com.ly.bluetoothhelper.R;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -279,4 +284,33 @@ public class Utils {
             Log.e("bondRemove--", e.getMessage());
         }
     }
+
+    /**
+     * 将文件转为byte[]
+     * @param filePath 文件路径
+     * @return
+     */
+    public static byte[] file2Bytes(String filePath){
+        File file = new File(filePath);
+        ByteArrayOutputStream out = null;
+        try {
+            FileInputStream in = new FileInputStream(file);
+            out = new ByteArrayOutputStream();
+            byte[] b = new byte[1024];
+            int i = 0;
+            while ((i = in.read(b)) != -1) {
+                out.write(b, 0, b.length);
+            }
+            out.close();
+            in.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        byte[] s = out.toByteArray();
+        return s;
+
+    }
+
 }

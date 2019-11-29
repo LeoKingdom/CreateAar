@@ -282,7 +282,7 @@ public class OTAUpgradeService extends Service {
                     total = isReconnect ? reCurrentPacket + total : total;
                     float percent = (float) current / currentTotalPacket * 100;
                     if (progressCallback != null) {
-                        progressCallback.setProgress(percent, current, currentFrame, currentBin);
+//                        progressCallback.setProgress(percent, current, currentFrame, currentBin,total);
                     }
                     cp = current;
                     tp = total;
@@ -296,7 +296,7 @@ public class OTAUpgradeService extends Service {
             @Override
             public void onWriteFailure(BleException exception) {
                 if (writeCallback != null) {
-                    writeCallback.fail(exception.getDescription());
+                    writeCallback.error(exception.getDescription());
                 }
             }
         });

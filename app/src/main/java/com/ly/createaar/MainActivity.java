@@ -27,6 +27,7 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.ly.bluetoothhelper.Test;
 import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.callbacks.DataCallback;
 import com.ly.bluetoothhelper.callbacks.NotifyCallback;
@@ -46,6 +47,7 @@ import com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes;
 import com.ly.bluetoothhelper.service.OTAUpgradeService;
 import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.Consts;
+import com.ly.bluetoothhelper.utils.TransformUtils;
 import com.ly.bluetoothhelper.utils.Utils;
 import com.ly.bluetoothhelper.widget.LoadingWidget;
 import com.ly.bluetoothhelper.widget.ProgressDialogWidget;
@@ -230,7 +232,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             otaUpgradeService1 = binder.getService();
             otaUpgradeService1.addHandler(mHandler);
             isBond = true;
-            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:93");
+            otaUpgradeService1.scanAndConn("88:9E:33:EE:A7:32");
 //            otaUpgradeService1.connectToDevice(bleDevice.getDevice());
             Log.e("bind---", "ok");
             setCallback();
@@ -373,7 +375,8 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         otaUpgradeService1.setNotifyCallback(new NotifyCallback() {
             @Override
             public void charactoristicChange(int action, byte[] backBytes) {
-
+                String callback= TransformUtils.bytesToHexString(backBytes);
+                showTxt.setText(callback+"");
             }
 
             @Override
@@ -417,21 +420,6 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 
                 }
             }
-
-            @Override
-            public void success() {
-
-            }
-
-            @Override
-            public void fail(Object o) {
-
-            }
-
-            @Override
-            public void noDevice() {
-
-            }
         });
 
         otaUpgradeService1.setProgressCallback(new ProgressCallback() {
@@ -443,8 +431,8 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             }
 
             @Override
-            public void setProgress(float percent, int current, int currentFrame, int currentBin) {
-                progressDialogWidget.getCurrentPacket().setText("当前传送: 第" + currentBin + "个文件,第" + currentFrame + "帧,第" + current + "包");
+            public void setProgress(float percent, int current, int totalFrame,int currentFrame, int currentBin,int totalBin) {
+                progressDialogWidget.getCurrentPacket().setText("共"+totalBin+"个文件,当前传送: 第" + currentBin + "个文件,共"+totalFrame+"帧,第" + currentFrame + "帧,第" + current + "包");
                 progressDialogWidget.getProgressBar().setProgress((int) percent);
                 progressDialogWidget.getProgressNumTv().setText(decimalFormat.format(percent) + "%");
             }
@@ -512,7 +500,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         });
     }
 
-
+    private TextView showTxt;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -520,6 +508,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         EventBus.getDefault().register(this);
         editText = findViewById(R.id.edittext);
         macEt = findViewById(R.id.mac_et);
+        showTxt=findViewById(R.id.write);
         progressDialogWidget = findViewById(R.id.progress_dialog);
         loadingWidget = findViewById(R.id.main_loading_widget);
         otaBtn = findViewById(R.id.ot_btn);
@@ -550,6 +539,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 //                showUpgradeDialog(true);
 //            }
         });
+
     }
 
     // todo
@@ -562,6 +552,8 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
                         new String[]{
                                 Manifest.permission.ACCESS_COARSE_LOCATION,
                                 Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.READ_EXTERNAL_STORAGE,
+                                Manifest.permission.WRITE_EXTERNAL_STORAGE
                         },
                         0x0010
                 );
@@ -655,11 +647,11 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 //        });
         String macAddress = macEt.getText().toString().trim();
         if (TextUtils.isEmpty(macAddress)) {
-            macAddress = "88:9E:33:EE:A7:D1";
+            macAddress = "88:9E:33:EE:A7:32";
 //            macAddress = "01:02:04:05:06:09";
         }
         if (isBond) {
-            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:d1");
+            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:32");
 //            otaUpgradeService1.scanAndConn(macAddress);
         } else {
             bindMyService(macAddress);

@@ -133,7 +133,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:onClick="write"
-                android:text="高通芯片升级"
+                android:text="蓝牙芯片升级"
                 android:textSize="30sp" />
             <Button
                 android:id="@+id/gt_btn"
@@ -151,10 +151,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:onClick="write"
             android:text="写入命令"
-            android:textSize="30sp"
-            android:visibility="invisible"
+            android:textSize="20sp"
             android:clickable="false"
             />
 

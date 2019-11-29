@@ -19,6 +19,7 @@ import android.util.Log;
 
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import fastble.bluetooth.BleBluetooth;
@@ -294,6 +295,12 @@ public class BleManager {
         return this;
     }
 
+    public Set<BluetoothDevice> getBondDeviceList(){
+        if (bluetoothAdapter==null) return null;
+
+        return bluetoothAdapter.getBondedDevices();
+    }
+
     /**
      * scan device around
      *
@@ -428,7 +435,7 @@ public class BleManager {
                        boolean useCharacteristicDescriptor,
                        BleNotifyCallback callback) {
         if (callback == null) {
-            throw new IllegalArgumentException("BleNotifyCallback can not be Null!");
+            throw new IllegalArgumentException("NotifyOpenCallback can not be Null!");
         }
 
         BleBluetooth bleBluetooth = multipleBluetoothController.getBleBluetooth(bleDevice);
