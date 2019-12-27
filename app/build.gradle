@@ -22,6 +22,12 @@ android {
     }
 }
 
+repositories {
+    flatDir {
+        dirs 'libs'   // aar目录
+    }
+}
+
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:28.0.0'
@@ -31,5 +37,7 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     implementation project(':bluetoothhelper')
     implementation 'com.inuker.bluetooth:library:1.4.0'
-
+//    api(name: "xhelper_6_12", ext: 'aar')
+//    api(name: "ma_xutils", ext: 'aar')
+    implementation 'com.squareup.retrofit2:retrofit:2.7.0'
 }

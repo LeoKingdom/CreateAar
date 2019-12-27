@@ -1,4 +1,4 @@
-package com.ly.bluetoothhelper.callbacks;
+package com.ly.bluetoothhelper.callbacks.base_callback;
 
 /**
  * author: LingYun

@@ -782,6 +782,11 @@ public class BluetoothHelper {
         });
     }
 
+    public void stopNotify(BleDevice device){
+        if (uuidHelper == null) uuidHelper = new BleUuidHelper();
+        BleManager.getInstance().stopNotify(device,uuidHelper.getServiceUuid(),uuidHelper.getNotiyUuid());
+    }
+
 
     public interface BleNotifyListener {
         void onNotifySuccess();

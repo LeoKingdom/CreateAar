@@ -1,4 +1,6 @@
-package com.ly.bluetoothhelper.callbacks;
+package com.ly.bluetoothhelper.callbacks.esim_callback;
+
+import com.ly.bluetoothhelper.callbacks.BaseBleCallback;
 
 /**
  * author: LingYun
@@ -8,7 +10,7 @@ package com.ly.bluetoothhelper.callbacks;
  * <p>
  * 激活esim卡回调
  */
-public abstract class EsimActiveCallback extends BaseBleCallback{
+public abstract class EsimActiveCallback extends BaseBleCallback {
     /**
      * 蓝牙地址非法
      */
@@ -19,9 +21,10 @@ public abstract class EsimActiveCallback extends BaseBleCallback{
      */
    public void deviceNotFound(){}
 
-    /**
-     * 文件错误
-     */
-   public void fileError(){}
 
+    /**
+     * 激活结果,非0为失败
+     * @param isActivated 是否成功
+     */
+   public abstract void activeResult(boolean isActivated);
 }

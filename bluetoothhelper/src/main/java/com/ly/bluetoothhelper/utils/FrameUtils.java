@@ -2,6 +2,8 @@ package com.ly.bluetoothhelper.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * author: LingYun
@@ -16,15 +18,15 @@ public class FrameUtils {
      * 解帧,获取每一帧的字节数组
      *
      * @param inputStream     数据输入流
-     * @param mtu 最大传输单元
+     * @param mtu             最大传输单元
      * @param eachFrameLength 每帧大小
      * @param currentFrame    当前帧
      */
-    public static byte[] deFrame(InputStream inputStream,int mtu, int eachFrameLength, int currentFrame) throws IOException {
+    public static byte[] deFrame(InputStream inputStream, int mtu, int eachFrameLength, int currentFrame) throws IOException {
         byte[] dataBytes = TransformUtils.streamToByte(inputStream);
         int totalFrame = dataBytes.length % eachFrameLength != 0 ? ((dataBytes.length / eachFrameLength) + 1) : (dataBytes.length / eachFrameLength);
         byte[] currentFrameBytes = getCurrentFrameBytes(dataBytes, eachFrameLength, totalFrame, currentFrame);
-        byte[] sortEachFrame=splitEachFrameBytes(currentFrameBytes,mtu,eachFrameLength,false);
+        byte[] sortEachFrame = splitEachFrameBytes(currentFrameBytes, mtu, eachFrameLength, false);
         return sortEachFrame;
     }
 
@@ -32,24 +34,38 @@ public class FrameUtils {
      * 解帧,返回每一帧处理后的字节数组,即添加序号并进行crc校验最后拼接
      *
      * @param inputStream     数据输入流
-     * @param mtu 最大传输单元
+     * @param mtu             最大传输单元
      * @param eachFrameLength 每帧大小
      * @param currentFrame    当前帧
      */
-    public static byte[] deFrameWithCrc(InputStream inputStream,int mtu, int eachFrameLength, int currentFrame) throws IOException {
+    public static byte[] deFrameWithCrc(InputStream inputStream, int mtu, int eachFrameLength, int currentFrame) throws IOException {
         byte[] dataBytes = TransformUtils.streamToByte(inputStream);
         int totalFrame = dataBytes.length % eachFrameLength != 0 ? ((dataBytes.length / eachFrameLength) + 1) : (dataBytes.length / eachFrameLength);
         byte[] currentFrameBytes = getCurrentFrameBytes(dataBytes, eachFrameLength, totalFrame, currentFrame);
-        byte[] sortEachFrame=splitEachFrameBytes(currentFrameBytes,mtu,eachFrameLength,true);
+        byte[] sortEachFrame = splitEachFrameBytes(currentFrameBytes, mtu, eachFrameLength, true);
         return sortEachFrame;
     }
 
     /**
      * 组帧
-     *
      */
-    public static void framing(byte[] data) {
-
+    public static byte[] framing(byte[] data, int totalFrame, int orderLength, int mtu) {
+        if (totalFrame == 0) {//总帧数=0,表示无需分帧,数据直接在eventid后拼接
+            int subLength = data.length - orderLength;
+            return Arrays.copyOfRange(data, orderLength, subLength);
+        } else {
+            byte length1 = data[1];
+            byte length2 = data[2];
+            int totalLength;
+            if (length1 == 0) {
+                totalLength = TransformUtils.byte2Int(length2);
+            } else {
+                totalLength = (TransformUtils.byte2Int(length1)) * (TransformUtils.byte2Int(length2));
+            }
+            byte[] buf = new byte[totalLength];
+            int totalPacket = totalLength % (mtu - 1) == 0 ? totalLength / (mtu - 1) : totalLength / (mtu - 1) + 1;
+        }
+        return null;
     }
 
     /**

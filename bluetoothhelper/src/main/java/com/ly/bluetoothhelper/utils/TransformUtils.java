@@ -4,7 +4,6 @@ import android.util.Log;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
@@ -18,6 +17,19 @@ import java.io.UnsupportedEncodingException;
  * 字节  字符串等转换工具
  */
 public class TransformUtils {
+
+    /**
+     * 将十进制数转换成两个字节长度的十六进制字符串
+     *
+     * @param num 转换的数
+     * @return
+     */
+    public static byte[] int2TwoBytes(int num) {
+        byte[] numBytes=int2ByteArray(num);
+        if (num < 256) return combineArrays(new byte[]{0},numBytes);
+        if (num < 65535) return numBytes;
+        return null;
+    }
 
     /**
      * 字节数组转换为16进制字符串
@@ -54,8 +66,8 @@ public class TransformUtils {
         return str;
     }
 
-    public static byte[] int2ByteArray(int num){
-        String hexString=int2hex(num);
+    public static byte[] int2ByteArray(int num) {
+        String hexString = int2hex(num);
         return hexToByteArray(hexString);
     }
 

@@ -1,6 +1,8 @@
-package com.ly.bluetoothhelper.callbacks;
+package com.ly.bluetoothhelper.callbacks.base_callback;
 
 import android.bluetooth.BluetoothGatt;
+
+import com.ly.bluetoothhelper.callbacks.BaseBleCallback;
 
 import fastble.data.BleDevice;
 import fastble.exception.BleException;

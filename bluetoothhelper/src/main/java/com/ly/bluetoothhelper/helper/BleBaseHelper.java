@@ -12,16 +12,15 @@ import android.location.LocationManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 
-import com.ly.bluetoothhelper.callbacks.ConnectCallback;
-import com.ly.bluetoothhelper.callbacks.MTUCallback;
-import com.ly.bluetoothhelper.callbacks.NotifyOpenCallback;
-import com.ly.bluetoothhelper.callbacks.OpenListener;
-import com.ly.bluetoothhelper.callbacks.ReadCallback;
-import com.ly.bluetoothhelper.callbacks.ReadRssiCallback;
-import com.ly.bluetoothhelper.callbacks.ScanCallback;
-import com.ly.bluetoothhelper.callbacks.ScanConnectCallback;
-import com.ly.bluetoothhelper.callbacks.WriteCallback;
-import com.ly.bluetoothhelper.utils.OrderSetUtils;
+import com.ly.bluetoothhelper.callbacks.base_callback.ConnectCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.MTUCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.NotifyOpenCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.OpenListener;
+import com.ly.bluetoothhelper.callbacks.base_callback.ReadCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.ReadRssiCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.ScanCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.ScanConnectCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
 
 import java.util.List;
 import java.util.Set;
@@ -185,19 +184,19 @@ public abstract class BleBaseHelper {
      *
      * @return
      */
-    protected boolean isBleOpen() {
+    public boolean isBleOpen() {
         return BleManager.getInstance().isBlueEnable();
     }
     /**
      * 打开蓝牙
      */
-    protected void enableBle() {
+    public void enableBle() {
         BleManager.getInstance().enableBluetooth();
     }
     /**
      * 关闭蓝牙
      */
-    protected void closeBle() {
+    public void closeBle() {
         BleManager.getInstance().disableBluetooth();
     }
     /**
@@ -206,7 +205,7 @@ public abstract class BleBaseHelper {
      * @param context
      * @param requestCode
      */
-    protected void enableBle(Activity context, int requestCode) {
+    public void enableBle(Activity context, int requestCode) {
         Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
         context.startActivityForResult(enableBtIntent, requestCode);
     }
@@ -232,7 +231,7 @@ public abstract class BleBaseHelper {
      * @param activity
      * @param requestCode
      */
-    protected void openGPS(Activity activity, int requestCode) {
+    public void openGPS(Activity activity, int requestCode) {
         Intent locationIntent = new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
         activity.startActivityForResult(locationIntent, requestCode);
     }
@@ -242,17 +241,27 @@ public abstract class BleBaseHelper {
      *
      * @param listener OpenListener回调
      */
-    protected void checkGpsAndBle(Context context, OpenListener listener) {
+    public void checkGpsAndBle(Context context, OpenListener listener) {
         boolean isOpenGps = isGpsOpen(context);
         boolean isOpenBle = isBleOpen();
         listener.open(isOpenBle, isOpenGps);
     }
 
 
+    public boolean isBonded(String mac){
+        Set<BluetoothDevice> bondList = bleManager.getBondDeviceList();
+        for (BluetoothDevice bluetoothDevice:bondList){
+            if (bluetoothDevice.getAddress().equalsIgnoreCase(mac)){
+                return true;
+            }
+        }
+        return false;
+    }
+
     /**
      * 扫描蓝牙设备
      */
-    protected void scan(ScanCallback scanListener) {
+    public void scan(ScanCallback scanListener) {
         if (!isBleOpen()) {
             scanListener.onBleDisable();
         }
@@ -285,7 +294,7 @@ public abstract class BleBaseHelper {
      *
      * @param mac 蓝牙mac地址
      */
-    protected void connect(String mac, ConnectCallback connectCallback) {
+    public void connect(String mac, ConnectCallback connectCallback) {
         BleScanRuleConfig config = new BleScanRuleConfig.Builder().setAutoConnect(true).build();
         bleManager.initScanRule(config);
         bleManager.connect(mac, new BleGattCallback() {
@@ -350,7 +359,7 @@ public abstract class BleBaseHelper {
      * @param name    蓝牙名称,不准确,一般不使用,除非蓝牙名称已知且不可更改
      */
 
-    protected void scanAndConnect(boolean isFuzzy, String address, String name, ScanConnectCallback connectCallback) {
+    public void scanAndConnect(boolean isFuzzy, String address, String name, ScanConnectCallback connectCallback) {
         if (!isBleOpen()) {
             connectCallback.onBleDisable();
         }
@@ -503,7 +512,7 @@ public abstract class BleBaseHelper {
      *
      * @return
      */
-    protected BleDevice getConnectDevice(String mac) {
+    public BleDevice getConnectDevice(String mac) {
         List<BleDevice> deviceList = getConnectedDeviceList();
         for (BleDevice device : deviceList) {
             if (device.getMac().equalsIgnoreCase(mac)) {
@@ -536,7 +545,7 @@ public abstract class BleBaseHelper {
      * @param mac
      * @return
      */
-    protected boolean isConnected(String mac) {
+    public boolean isConnected(String mac) {
         return BleManager.getInstance().isConnected(mac);
     }
 
@@ -587,7 +596,7 @@ public abstract class BleBaseHelper {
      * @param ob 设备or蓝牙地址
      *            notify 和indicate方法都可以设置通知,区别在于:indicate方法,从端收到通知会回发一个ACK包到主端
      */
-    protected void setNotify(Object ob, NotifyOpenCallback notifyOpenCallback) {
+    public void setNotify(Object ob, NotifyOpenCallback notifyOpenCallback) {
         BleDevice device = getDevice(ob);
         if (device == null) {
             notifyOpenCallback.deviceNotConnect();
@@ -622,6 +631,10 @@ public abstract class BleBaseHelper {
                 }
             }
         });
+    }
+
+    public void closeNotify(BleDevice device){
+        BleManager.getInstance().stopNotify(device,service_uuid,notify_uuid);
     }
 
     /**
@@ -712,7 +725,7 @@ public abstract class BleBaseHelper {
      * @param datas         传输的字节数据
      * @param writeCallback 监听回调
      */
-    protected void writeCharacteristic(Object ob, byte[] datas, WriteCallback writeCallback) {
+    public void writeCharacteristic(Object ob, byte[] datas, WriteCallback writeCallback) {
         BleDevice device = getDevice(ob);
         if (device == null) {
             writeCallback.deviceNotConnect();
@@ -749,7 +762,7 @@ public abstract class BleBaseHelper {
      * @param dates               传输的字节数据
      * @param writeCallback       监听回调
      */
-    protected void writeCharacteristic(Object ob, long intervalBetweenTime, byte[] dates, WriteCallback writeCallback) {
+    public void writeCharacteristic(Object ob, long intervalBetweenTime, byte[] dates, WriteCallback writeCallback) {
         BleDevice device = getDevice(ob);
         if (device == null) {
             writeCallback.deviceNotConnect();
@@ -786,7 +799,7 @@ public abstract class BleBaseHelper {
      * @param dates         传输的字节数据
      * @param writeCallback 监听回调
      */
-    protected void writeCharacteristic(Object ob, byte[] dates, boolean nextPacketSuccess, long betweenPacketInterval, WriteCallback writeCallback) {
+    public void writeCharacteristic(Object ob, byte[] dates, boolean nextPacketSuccess, long betweenPacketInterval, WriteCallback writeCallback) {
         BleDevice device = getDevice(ob);
         if (device == null) {
             writeCallback.deviceNotConnect();

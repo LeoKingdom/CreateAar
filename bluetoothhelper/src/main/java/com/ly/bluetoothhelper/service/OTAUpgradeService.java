@@ -17,7 +17,7 @@ import com.ly.bluetoothhelper.beans.TransfirmDataBean;
 import com.ly.bluetoothhelper.callbacks.DataCallback;
 import com.ly.bluetoothhelper.callbacks.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.ProgressCallback;
-import com.ly.bluetoothhelper.callbacks.WriteCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
 import com.ly.bluetoothhelper.helper.BleConnectHelper;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
 import com.ly.bluetoothhelper.utils.ActionUtils;

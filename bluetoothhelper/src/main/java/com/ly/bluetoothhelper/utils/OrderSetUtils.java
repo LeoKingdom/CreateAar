@@ -20,7 +20,21 @@ public class OrderSetUtils {
     /***************************ESIM对应指令******************************/
     public static final byte[] ESIM_EID={-85,0,0,0,0,48,1}; //获取EID指令
     public static final byte[] ESIM_IMEI={-85,0,0,0,0,48,2}; //获取IMEI指令
-    public static final byte[] ESIM_PROFILE_DOWNLOAD={-85,0,0,0,0,48,3}; //下载Profile指令  app->ble
+    //第一次 start
+    public static final byte[] ESIM_PROFILE_START={-85,0,0,0,0,48,80}; //下载Profile指令  开始 app->tracker
+    public static final byte[] ESIM_PROFILE_URL_RESP={-85,0,0,0,0,48,81}; //profile url回复  第一次 tracker->app
+    public static final byte[] ESIM_PROFILE_URL_RESP_ACK_R={-85,0,2,0,0,48,81,0,0}; //profile url确认包正确  app->tracker
+    public static final byte[] ESIM_PROFILE_URL_RESP_ACK_E={-85,0,2,0,0,48,81,0,1}; //profile url确认包错误  app->tracker
+    public static final byte[] ESIM_PROFILE_POST_RESP={-85,0,0,0,0,48,82}; //profile post回复  tracker->app 附:这一步之后进行第一次网络请求
+    public static final byte[] ESIM_PROFILE_POST_SEND={-85,0,0,0,0,48,83}; //profile post传输  app->tracker 向tracker传输第一次网络请求返回的jsonBody
+    //end
+    //第二次 start
+//    public static final byte[] ESIM_PROFILE_URL_RESP={-85,0,0,0,0,48,81}; //profile url回复  第一次 tracker->app
+//    public static final byte[] ESIM_PROFILE_URL_RESP_ACK_R={-85,0,2,0,0,48,81,0,0}; //profile url确认包正确  app->tracker
+//    public static final byte[] ESIM_PROFILE_URL_RESP_ACK_E={-85,0,2,0,0,48,81,0,1}; //profile url确认包错误  app->tracker
+//    public static final byte[] ESIM_PROFILE_POST_RESP={-85,0,0,0,0,48,82}; //profile post回复  tracker->app 附:这一步之后进行第一次网络请求
+    //end
+    public static final byte[] ESIM_PROFILE_DOWNLOAD={-85,0,0,1,1,48,3}; //下载Profile指令  app->ble
     public static final byte[] ESIM_PROFILE_DOWNLOAD_URL_RESP={-85,0,0,0,0,48,4}; //下载Profile 的URL回复指令  ble->app
     public static final byte[] ESIM_PROFILE_DOWNLOAD_POST_RESP={-85,0,0,0,0,48,5}; //下载Profile 的post请求参数回复指令  ble->app
     public static final byte[] ESIM_ACTIVE_NOTICE_RESP={-85,0,0,0,0,48,6}; //是否激活通知回复指令  ble->app

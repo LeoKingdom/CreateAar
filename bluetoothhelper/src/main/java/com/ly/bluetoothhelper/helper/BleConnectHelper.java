@@ -275,6 +275,12 @@ public class BleConnectHelper {
         return Math.pow(10, power);
     }
 
+    public void clearHandler(){
+        if (reConnHandler!=null){
+            reConnHandler.removeCallbacksAndMessages(null);
+            clearRssiTimer();
+        }
+    }
 
     /**
      * 开始重连

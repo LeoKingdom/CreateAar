@@ -29,6 +29,7 @@ android {
 
 }
 
+
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
@@ -38,4 +39,5 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
 //    api 'com.clj.fastble:FastBleLib:2.3.4'  //蓝牙
     api ('org.greenrobot:eventbus:3.1.1')
+//    api(name: "xhelper_6_12", ext: 'aar')
 }

@@ -1,4 +1,6 @@
-package com.ly.bluetoothhelper.callbacks;
+package com.ly.bluetoothhelper.callbacks.base_callback;
+
+import com.ly.bluetoothhelper.callbacks.BaseBleCallback;
 
 import fastble.data.BleDevice;
 import fastble.exception.BleException;
@@ -9,7 +11,7 @@ import fastble.exception.BleException;
  * date: 2019/11/26 18:45
  * version: 1.0
  */
-public abstract class NotifyOpenCallback extends BaseBleCallback{
+public abstract class NotifyOpenCallback extends BaseBleCallback {
     public abstract void onNotifySuccess(BleDevice device);
 
     public abstract void onNotifyFailed(BleException e);

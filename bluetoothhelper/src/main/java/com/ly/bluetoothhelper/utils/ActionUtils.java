@@ -7,6 +7,8 @@ package com.ly.bluetoothhelper.utils;
  * version: 1.0
  */
 public class ActionUtils {
+
+    //---------------------------------升级action start ------------------------------
     //升级类型
     public static final int ACTION_UPGRADE_9205 =10001 ;//升级9205
     public static final int ACTION_UPGRADE_BLE =10002 ;//升级蓝牙芯片
@@ -41,4 +43,13 @@ public class ActionUtils {
     //先取消配对再连接,防止扫描不到而无法连接
     //为什么不直接连接? --->当设备不在范围内或其他原因,直接连接会失败,因为原因可能很多,所以需要做很多判断,故采取暴力解决的办法
     public static final int ACTION_UNPAIR_AND_CONNECT = 18;
+    //---------------------------------升级action end ------------------------------
+
+    //---------------------------------Esim激活action start ------------------------------
+    public static final int ACTION_ESIM_ACTIVE_FIRST=19; //激活esim第一步
+    public static final int ACTION_ESIM_ACTIVE_NEXT=20; //激活esim第二、三步
+    public static final int ACTION_ESIM_ACTIVE_FORTH=22; //激活esim第四步
+    public static final int ACTION_ESIM_ACTIVE=23; //激活esim,真正激活
+    public static final int ACTION_ESIM_UNACTIVE=24; //去活esim
+    //---------------------------------Esim激活action end ------------------------------
 }

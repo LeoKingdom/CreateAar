@@ -404,6 +404,10 @@ public class BleConnectHelper1 {
 
     }
 
+    public void closeNotify(BleDevice device){
+        bluetoothHelper.stopNotify(device);
+    }
+
     /**
      * 写入数据(十六进制字节数组)
      *

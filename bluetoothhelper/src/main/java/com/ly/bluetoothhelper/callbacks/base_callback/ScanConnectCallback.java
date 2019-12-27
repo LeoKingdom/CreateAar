@@ -1,6 +1,8 @@
-package com.ly.bluetoothhelper.callbacks;
+package com.ly.bluetoothhelper.callbacks.base_callback;
 
 import android.bluetooth.BluetoothGatt;
+
+import com.ly.bluetoothhelper.callbacks.BaseBleCallback;
 
 import fastble.data.BleDevice;
 
@@ -10,8 +12,9 @@ import fastble.data.BleDevice;
  * date: 2019/11/26 17:53
  * version: 1.0
  */
-public abstract class ScanConnectCallback extends BaseBleCallback{
-    public abstract void onScanStarted(boolean success);
+public abstract class ScanConnectCallback extends BaseBleCallback {
+    public void onScanStarted(boolean success) {
+    }
 
     public abstract void onScanFinished(BleDevice bleDevice);
 
@@ -21,5 +24,6 @@ public abstract class ScanConnectCallback extends BaseBleCallback{
 
     public abstract void onDisconnect(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt);
 
-    public abstract void onBleDisable();
+    public void onBleDisable() {
+    }
 }

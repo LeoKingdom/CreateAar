@@ -282,7 +282,7 @@ public class DataPacketUtils {
         byte[] lostPacketBytes = null;
         int resLength = responseByte.length;
         byte loseCurrentByte = responseByte[resLength - 1];
-        if (responseByte.length >= 8) {
+        if (resLength > 8) {
             byte loseTotalByte = responseByte[7];
             if (loseCurrentByte == (byte) 0x00 && loseTotalByte == (byte) 0x00) {
                 //未丢包
@@ -335,6 +335,11 @@ public class DataPacketUtils {
             } else if (loseTotalByte == (byte) 0xFF || (loseTotalByte == (byte) 0x00 && loseCurrentByte == (byte) 0x01)) {
                 //丢五包以上或者校验错误,responseByte长度为9
                 return new byte[]{loseCurrentByte};
+            }
+        }else if (resLength==8){
+            if (loseCurrentByte == (byte) 0x00) {
+                //未丢包
+                return null;
             }
         }
         return lostPacketBytes;

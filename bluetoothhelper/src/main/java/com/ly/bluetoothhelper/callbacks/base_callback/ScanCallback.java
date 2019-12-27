@@ -1,4 +1,6 @@
-package com.ly.bluetoothhelper.callbacks;
+package com.ly.bluetoothhelper.callbacks.base_callback;
+
+import com.ly.bluetoothhelper.callbacks.BaseBleCallback;
 
 import java.util.List;
 

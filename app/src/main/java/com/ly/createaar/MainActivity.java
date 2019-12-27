@@ -2,7 +2,6 @@ package com.ly.createaar;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.content.ComponentName;
 import android.content.Context;
@@ -12,9 +11,11 @@ import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.SystemClock;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.FragmentActivity;
 import android.support.v7.app.AlertDialog;
@@ -27,28 +28,31 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.ly.bluetoothhelper.Test;
 import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.callbacks.DataCallback;
 import com.ly.bluetoothhelper.callbacks.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.ProgressCallback;
-import com.ly.bluetoothhelper.callbacks.WriteCallback;
-import com.ly.bluetoothhelper.helper.BleConnectHelper1;
+import com.ly.bluetoothhelper.callbacks.base_callback.NotifyOpenCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.ScanConnectCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
+import com.ly.bluetoothhelper.helper.ESimActiveHelper;
 import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
 import com.ly.bluetoothhelper.oat.annotation.Enums;
 import com.ly.bluetoothhelper.oat.annotation.ErrorTypes;
 import com.ly.bluetoothhelper.oat.annotation.MessageType;
 import com.ly.bluetoothhelper.oat.annotation.State;
 import com.ly.bluetoothhelper.oat.annotation.Support;
-import com.ly.bluetoothhelper.oat.service.OtauBleService;
+import com.ly.bluetoothhelper.oat.service.UpgradeFotaAndBleService;
 import com.ly.bluetoothhelper.oat.upgrade.UpgradeError;
 import com.ly.bluetoothhelper.oat.upgrade.UploadProgress;
 import com.ly.bluetoothhelper.oat.upgrade.codes.ReturnCodes;
 import com.ly.bluetoothhelper.service.OTAUpgradeService;
 import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.Consts;
+import com.ly.bluetoothhelper.utils.OrderSetUtils;
 import com.ly.bluetoothhelper.utils.TransformUtils;
 import com.ly.bluetoothhelper.utils.Utils;
+import com.ly.bluetoothhelper.utils.ZipUtils;
 import com.ly.bluetoothhelper.widget.LoadingWidget;
 import com.ly.bluetoothhelper.widget.ProgressDialogWidget;
 import com.ly.bluetoothhelper.widget.VMUpgradeDialog;
@@ -63,11 +67,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import fastble.data.BleDevice;
+import fastble.exception.BleException;
+import okhttp3.MediaType;
+import okhttp3.RequestBody;
+import okhttp3.ResponseBody;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+import retrofit2.Retrofit;
+import retrofit2.http.Body;
+import retrofit2.http.POST;
+import retrofit2.http.Path;
 
 public class MainActivity extends FragmentActivity implements VMUpgradeDialog.UpgradeDialogListener {
 
@@ -77,26 +91,13 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
     private ProgressDialogWidget progressDialogWidget;
     private LoadingWidget loadingWidget;
     private OTAUpgradeService otaUpgradeService;
-    private OtauBleService otaUpgradeService1;
+    private UpgradeFotaAndBleService otaUpgradeService1;
     private DecimalFormat decimalFormat;
     private VMUpgradeDialog vmUpgradeDialog;
     private List<String> fileNameList = new ArrayList<>();
     private Button otaBtn;
     private Button gtBtn;
     private boolean isBond = false;
-    private ServiceConnection connection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            OTAUpgradeService.LocalBinder binder = (OTAUpgradeService.LocalBinder) service;
-            otaUpgradeService = binder.getService();
-            setCallback();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-
-        }
-    };
     //与service之间的各种消息回调
     @SuppressLint("HandlerLeak")
     private Handler mHandler = new Handler() {
@@ -218,21 +219,69 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 //                    handleMessage.append("MTU_UPDATED: size=").append(mtu);
                     break;
 
-                default:
+                case 100001:
+                    String path = (String) msg.obj;
+                    String filePathName0 = Environment.getExternalStorageDirectory().getPath()
+                            + File.separatorChar + "test-data" + File.separatorChar + "unzip" + File.separatorChar + "update";
+                    File file3 = new File(filePathName0);
+                    if (file3.exists() && file3.isDirectory()) {
+                        path = filePathName0;
+                    }
+                    otaUpgradeService1.initData(path);
 //                    handleMessage.append("UNKNOWN MESSAGE: ").append(msg);
                     break;
             }
 
         }
     };
+    private AlertDialog mDialogReconnection;
+    private ESimActiveHelper eSimHelper;
+    private TextView showTxt;
+    private ServiceConnection connection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            OTAUpgradeService.LocalBinder binder = (OTAUpgradeService.LocalBinder) service;
+            otaUpgradeService = binder.getService();
+            setCallback();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+        }
+    };
     private ServiceConnection connection1 = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            OtauBleService.LocalBinder binder = (OtauBleService.LocalBinder) service;
+            UpgradeFotaAndBleService.LocalBinder binder = (UpgradeFotaAndBleService.LocalBinder) service;
             otaUpgradeService1 = binder.getService();
             otaUpgradeService1.addHandler(mHandler);
             isBond = true;
-            otaUpgradeService1.scanAndConn("88:9E:33:EE:A7:32");
+            String filePathName = Environment.getExternalStorageDirectory().getPath()
+                    + File.separatorChar + "test-data" + File.separatorChar + "unzip";
+            String filePathName1 = Environment.getExternalStorageDirectory().getPath()
+                    + File.separatorChar + "test-data" + File.separatorChar + "update.zip";
+            File file = new File(filePathName1);
+            File file1 = new File(filePathName);
+            if (file1.exists()) {
+                for (File file2 : file1.listFiles()) {
+                    file2.delete();
+                }
+            } else {
+                file1.mkdirs();
+            }
+            if (file.exists()) {
+                try {
+                    ZipUtils.unzipFolder(filePathName1, filePathName);
+                    Message message = mHandler.obtainMessage();
+                    message.what = 100001;
+                    message.obj = filePathName;
+                    mHandler.sendMessageDelayed(message, 2000);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+//            otaUpgradeService1.scanAndConn("88:9E:33:EE:A7:AF");
 //            otaUpgradeService1.connectToDevice(bleDevice.getDevice());
             Log.e("bind---", "ok");
             setCallback();
@@ -243,7 +292,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             isBond = false;
         }
     };
-    private AlertDialog mDialogReconnection;
+    private String mUrl;
 
     /**
      * <p>This method allows the Upgrade process to be able to ask the user any confirmation to be able to carry on
@@ -375,8 +424,8 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         otaUpgradeService1.setNotifyCallback(new NotifyCallback() {
             @Override
             public void charactoristicChange(int action, byte[] backBytes) {
-                String callback= TransformUtils.bytesToHexString(backBytes);
-                showTxt.setText(callback+"");
+                String callback = TransformUtils.bytesToHexString(backBytes);
+                showTxt.setText(callback + "");
             }
 
             @Override
@@ -431,8 +480,8 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             }
 
             @Override
-            public void setProgress(float percent, int current, int totalFrame,int currentFrame, int currentBin,int totalBin) {
-                progressDialogWidget.getCurrentPacket().setText("共"+totalBin+"个文件,当前传送: 第" + currentBin + "个文件,共"+totalFrame+"帧,第" + currentFrame + "帧,第" + current + "包");
+            public void setProgress(float percent, int current, int totalFrame, int currentFrame, int currentBin, int totalBin) {
+                progressDialogWidget.getCurrentPacket().setText("共" + totalBin + "个文件,当前传送: 第" + currentBin + "个文件,共" + totalFrame + "帧,第" + currentFrame + "帧,第" + current + "包");
                 progressDialogWidget.getProgressBar().setProgress((int) percent);
                 progressDialogWidget.getProgressNumTv().setText(decimalFormat.format(percent) + "%");
             }
@@ -500,7 +549,6 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         });
     }
 
-    private TextView showTxt;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -508,7 +556,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         EventBus.getDefault().register(this);
         editText = findViewById(R.id.edittext);
         macEt = findViewById(R.id.mac_et);
-        showTxt=findViewById(R.id.write);
+        showTxt = findViewById(R.id.write);
         progressDialogWidget = findViewById(R.id.progress_dialog);
         loadingWidget = findViewById(R.id.main_loading_widget);
         otaBtn = findViewById(R.id.ot_btn);
@@ -575,9 +623,168 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         editText.setText("");
     }
 
+    public void notifyEsim(View view) {
+        eSimHelper.scanAndConnect(true, "88:9E:33:EE:A7:93", "", new ScanConnectCallback() {
+            @Override
+            public void onScanFinished(BleDevice bleDevice) {
+
+            }
+
+            @Override
+            public void onConnectSuccess(BleDevice device, BluetoothGatt gatt, int status) {
+                bleDevice = device;
+                openN(device);
+            }
+
+            @Override
+            public void onConnectFailed(BleDevice bleDevice, String description) {
+
+            }
+
+            @Override
+            public void onDisconnect(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt) {
+
+            }
+        });
+//        eSimHelper.esimActive("88:9E:33:EE:A7:93");
+//        eSimHelper.setEsimActiveCallback(new EsimActiveCallback() {
+//            @Override
+//            public void deviceNotFound() {
+//                super.deviceNotFound();
+//                //未能连接上设备的逻辑
+//            }
+//
+//            @Override
+//            public void activeResult(boolean isActivated) {
+//                //激活是否成功
+//                if (isActivated) {
+//                    toast("Esim激活成功");
+//                } else {
+//                    toast("Esim激活失败");
+//                }
+//            }
+//        });
+    }
+
+    private void openN(BleDevice bleDevice) {
+        eSimHelper.setNotify(bleDevice, new NotifyOpenCallback() {
+            @Override
+            public void onNotifySuccess(BleDevice device) {
+                Log.e("ns---", device + "");
+            }
+
+            @Override
+            public void onNotifyFailed(BleException e) {
+                Log.e("nf---", e.getDescription() + "");
+            }
+
+            @Override
+            public void onCharacteristicChanged(String mac, byte[] data) {
+                Log.e("data---", Arrays.toString(data));
+            }
+        });
+        SystemClock.sleep(10000);
+        eSimHelper.setNotify(bleDevice, new NotifyOpenCallback() {
+            @Override
+            public void onNotifySuccess(BleDevice device) {
+                Log.e("ns---1", device + "");
+            }
+
+            @Override
+            public void onNotifyFailed(BleException e) {
+                Log.e("nf---1", e.getDescription() + "");
+            }
+
+            @Override
+            public void onCharacteristicChanged(String mac, byte[] data) {
+                Log.e("data---1", Arrays.toString(data));
+            }
+        });
+    }
+
+    public void activeEsim(View view) {
+        eSimHelper.writeCharacteristic(bleDevice, OrderSetUtils.ESIM_PROFILE_START, new WriteCallback() {
+            @Override
+            public void writeSuccess(int actionType, int current, int total, byte[] justWrite) {
+
+            }
+        });
+//        eSimHelper.esimActiveFirst("88:9E:33:EE:A7:93");
+//        eSimHelper.setEsimUrlListener(new EsimDataCallback.EsimUrlListener() {
+//            @Override
+//            public void urlSuccess(int step, String url) {
+//                Log.e("url----", url);
+//                mUrl = url;
+//            }
+//
+//            @Override
+//            public void urlFail(String des) {
+//
+//            }
+//        });
+//
+//        eSimHelper.setEsimUrlPostListener(new EsimDataCallback.EsimUrlPostListener() {
+//            @Override
+//            public void urlPostSuccess(int step, String json) {
+//                Log.e("post----", json);
+//                postToServer(json);
+//            }
+//
+//            @Override
+//            public void urlPostFail(String des) {
+//
+//            }
+//
+//            @Override
+//            public void profileSuccess(int code) {
+//                if (code == 0) {
+//                    toast("profile下载成功");
+//                } else {
+//                    toast("profile下载失败");
+//                }
+//            }
+//        });
+    }
+
+    private void postToServer(String json) {
+        String url = mUrl.substring(mUrl.lastIndexOf("/") + 1);
+        String baseUrl = mUrl.substring(0, mUrl.lastIndexOf("/") + 1);
+        Retrofit retrofit = new Retrofit.Builder()
+                .baseUrl(baseUrl)
+                .build();
+        RequestBody body = RequestBody.create(MediaType.parse("application/json"), json);
+        RetrofitService service = retrofit.create(RetrofitService.class);
+        Call<ResponseBody> call = service.authenticat(url, body);
+        call.enqueue(new Callback<ResponseBody>() {
+            @Override
+            public void onResponse(Call<ResponseBody> call, Response<ResponseBody> response) {
+
+                try {
+                    int code = response.code();
+                    if (response.body() != null) {
+                        String bodyStr = response.body().string();
+                        eSimHelper.esimActiveNext(code, bodyStr);
+                    }
+                    if (code == 204) {
+                        eSimHelper.esimActiveResult(code);
+                    }
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<ResponseBody> call, Throwable t) {
+                Log.e("err---", t.getMessage());
+            }
+        });
+
+
+    }
 
     private void bindMyService(String mac) {
-        Intent intent = new Intent(this, OtauBleService.class);
+        Intent intent = new Intent(this, UpgradeFotaAndBleService.class);
         intent.setAction(ActionUtils.ACTION_DEVICE_SCAN);
         intent.putExtra("mac_address", mac);
 //        intent.putExtra("mac_address", "01:02:04:05:A6:14");
@@ -590,7 +797,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
             toast("连接未连接");
             loadingWidget.setLoadingText("device connecting...");
             loadingWidget.show();
-            otaUpgradeService1.connectDevice(false);
+//            otaUpgradeService1.connectDevice(false);
             return;
         }
         loadingWidget.setLoadingText("data loading...");
@@ -600,7 +807,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 
     public void time_set(View view) {
         String timeStr = editText.getText().toString().trim();
-        if (TextUtils.isEmpty(timeStr) || timeStr.equals("0")) {
+        if (TextUtils.isEmpty(timeStr)) {
             toast("请输入数值");
             return;
         }
@@ -614,7 +821,7 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
     @Override
     protected void onResume() {
         super.onResume();
-
+        eSimHelper = new ESimActiveHelper(getApplication());
     }
 
     //connect to device
@@ -647,11 +854,11 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
 //        });
         String macAddress = macEt.getText().toString().trim();
         if (TextUtils.isEmpty(macAddress)) {
-            macAddress = "88:9E:33:EE:A7:32";
+            macAddress = "88:9E:33:EE:A7:AF";
 //            macAddress = "01:02:04:05:06:09";
         }
         if (isBond) {
-            otaUpgradeService1.scanAndConn("88:9e:33:ee:a7:32");
+            otaUpgradeService1.handleConnect("88:9e:33:ee:a7:AF");
 //            otaUpgradeService1.scanAndConn(macAddress);
         } else {
             bindMyService(macAddress);
@@ -742,23 +949,19 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
         return false;
     }
 
-
     // todo
     public void scanFail() {
         toast("未发现蓝牙设备,请重启设备再试");
         loadingWidget.hide();
     }
 
-
     public void scanSuccess(BleDevice bleDevice) {
 
     }
 
-
     public void connetFail(BleDevice b) {
         toast("连接失败");
     }
-
 
     public void connectSuccess(BleDevice bleDevice) {
         this.bleDevice = bleDevice;
@@ -785,5 +988,10 @@ public class MainActivity extends FragmentActivity implements VMUpgradeDialog.Up
     @Override
     public int getResumePoint() {
         return (otaUpgradeService1 != null) ? otaUpgradeService1.getResumePoint() : Enums.DATA_TRANSFER;
+    }
+
+    interface RetrofitService {
+        @POST("{lastPath}")
+        Call<ResponseBody> authenticat(@Path("lastPath") String path, @Body RequestBody requestBody);
     }
 }

@@ -1,4 +1,6 @@
-package com.ly.bluetoothhelper.callbacks;
+package com.ly.bluetoothhelper.callbacks.base_callback;
+
+import com.ly.bluetoothhelper.callbacks.BaseBleCallback;
 
 /**
  * author: LingYun
@@ -6,7 +8,7 @@ package com.ly.bluetoothhelper.callbacks;
  * date: 2019/10/15 14:25
  * version: 1.0
  */
-public abstract class WriteCallback extends BaseBleCallback{
+public abstract class WriteCallback extends BaseBleCallback {
     /**
      * 写入操作
      * @param actionType 操作类型,fota升级用到

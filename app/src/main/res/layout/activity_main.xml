@@ -22,26 +22,23 @@
             android:clickable="false"
             />
         <TextView
+            android:id="@+id/esim"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:onClick="notify"
-            android:text="开启通知"
+            android:onClick="activeEsim"
+            android:text="ESim下载profile"
             android:textSize="30sp"
-            android:visibility="invisible"
-            android:clickable="false"
             />
         <TextView
-            android:id="@+id/ota"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:onClick="read"
-            android:text="OTA升级包校验"
+            android:onClick="notifyEsim"
+            android:text="激活Esim"
             android:textSize="30sp"
-            android:visibility="invisible"
-            android:clickable="false"
             />
+
 
 
         <LinearLayout
