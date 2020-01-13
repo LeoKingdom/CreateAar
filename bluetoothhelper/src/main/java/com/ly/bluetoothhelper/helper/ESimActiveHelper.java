@@ -8,11 +8,13 @@ import android.os.Handler;
 import android.os.Message;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.TextView;
 
 import com.ly.bluetoothhelper.callbacks.base_callback.NotifyOpenCallback;
 import com.ly.bluetoothhelper.callbacks.base_callback.ScanConnectCallback;
 import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimActiveCallback;
+import com.ly.bluetoothhelper.callbacks.esim_callback.EsimCancelCallback;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimDataCallback;
 import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.CRCCheckUtils;
@@ -40,7 +42,8 @@ public class ESimActiveHelper extends BleBaseHelper {
     private final int DATA_CHECK = 1001;//校验数据
     private final int URL_RESPONSE = 1002;//回复url数据是否正确
     private final int JSON_BODY_EACH_FRAME = 1003;//jsonBody数据分帧
-    private EsimActiveCallback esimActiveCallback;
+    private final int PREPARE_URL_TRANSFORM = 1004;//准备传输url
+    private final int BEGIN_URL_TRANSFORM = 1005;//开始传输url
     private String mMac;
     private String serviceUuid;
     private String notifyUuid;
@@ -58,12 +61,20 @@ public class ESimActiveHelper extends BleBaseHelper {
     private int currentFrame = 0;
     private byte[] jsonBodyBytes;
     private byte currentEventId;
+    private boolean notifyOpen = false;
+    private EsimActiveCallback esimActiveCallback;
+    private EsimCancelCallback esimCancelCallback;
     private EsimDataCallback.EsimUrlListener esimUrlListener;
     private EsimDataCallback.EsimUrlPostListener esimUrlPostListener;
+    //    private String testUrl = "1$oemgsma-lpa-json.demo.gemalto.com$DD6036B4D647DAC642BFCE7A73490CBFEF46904605EBED7572BBABD5AEA44185";
+    private String testUrl = "1$369f3f19.cpolar.cn$04386-AGYFT-A74Y8-3F815";
     private WriteCallback writeListener = new WriteCallback() {
         @Override
         public void writeSuccess(int actionType, int current, int total, byte[] justWrite) {
             Log.e("write----", Arrays.toString(justWrite));
+            if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_URL) {
+                handler.sendEmptyMessageDelayed(BEGIN_URL_TRANSFORM, 20);
+            }
         }
 
         @Override
@@ -150,8 +161,17 @@ public class ESimActiveHelper extends BleBaseHelper {
                         currentFrame = 0;
                         totalFrame = 0;
                     }
-                    Log.e("dataL---", currentFrameBytes.length + "/" + requestBytes.length + "/" + Arrays.toString(headBytes));
+//                    Log.e("dataL---", currentFrameBytes.length + "/" + requestBytes.length + "/" + Arrays.toString(headBytes));
                     writeCharacteristic(bleDevice, 20, requestBytes, writeListener);
+                    break;
+                case PREPARE_URL_TRANSFORM:
+                    byte[] urlHeadByte = DataPacketUtils.frameHeadBytes(OrderSetUtils.ESIM_SM_DP, testUrl.getBytes(), 1, 1);
+                    writeCharacteristic(bleDevice, urlHeadByte, writeListener);
+                    break;
+                case BEGIN_URL_TRANSFORM:
+                    CURRENT_ACTION = BEGIN_URL_TRANSFORM;
+                    byte[] urlByte = DataPacketUtils.splitEachFrameBytes(testUrl.getBytes());
+                    writeCharacteristic(bleDevice, 20, urlByte, writeListener);
                     break;
             }
         }
@@ -160,18 +180,15 @@ public class ESimActiveHelper extends BleBaseHelper {
         @Override
         public void onNotifySuccess(BleDevice device) {
 //            Log.e("notifySuccess---", device + "");
+            notifyOpen = true;
             if (device.getMac().equalsIgnoreCase(mMac)) {
-                if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE_FIRST) {
-                    currentEventId = (byte) 0x50;
-                    writeCharacteristic(device, OrderSetUtils.ESIM_PROFILE_START, writeListener);
-                } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE) {
-                    writeCharacteristic(bleDevice, OrderSetUtils.ESIM_ACTIVE, writeListener);
-                }
+                notifyBesiness();
             }
         }
 
         @Override
         public void onNotifyFailed(BleException e) {
+            notifyOpen = false;
             if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE_FIRST) {
                 setNotify(bleDevice, notifyListener);
             }
@@ -181,7 +198,7 @@ public class ESimActiveHelper extends BleBaseHelper {
         public void onCharacteristicChanged(String mac, byte[] data) {
             Log.e("dataCallback---", TransformUtils.bytesToHexString(data));
             if (mac.equalsIgnoreCase(mMac)) {
-                if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE_FIRST || CURRENT_ACTION == 3) {
+                if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE_FIRST || CURRENT_ACTION == 3) {//获取url和postdata回复
                     if (data.length == 7 || data.length == 9) {
                         headBytes = data;
                         int length1 = TransformUtils.byte2Int(data[1]);
@@ -203,7 +220,7 @@ public class ESimActiveHelper extends BleBaseHelper {
                         packets = tLength % 19 == 0 ? tLength / 19 : tLength / 19 + 1;
                         handler.sendEmptyMessageDelayed(DATA_TIMEOUT, packets * 50 + 3000);//超时处理
                     }
-                } else if (CURRENT_ACTION == 0 || CURRENT_ACTION == 4) {
+                } else if (CURRENT_ACTION == 0 || CURRENT_ACTION == 4) {//处理url和postdata,即组包
                     sumPackets++;
                     sumPacketList.add((int) data[0]);
                     data = Arrays.copyOfRange(data, 1, data.length);
@@ -219,8 +236,7 @@ public class ESimActiveHelper extends BleBaseHelper {
                     }
                 } else if (CURRENT_ACTION == JSON_BODY_EACH_FRAME) {
                     handler.sendEmptyMessageDelayed(JSON_BODY_EACH_FRAME, 50);
-                } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE_FORTH) {
-                    //下载profile结果
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE_FORTH) {//下载profile结果
                     if (data.length > 7) {
                         boolean moduleId = data[5] == (byte) 0x30;
                         boolean eventId = data[6] == (byte) 0x5D;
@@ -233,8 +249,8 @@ public class ESimActiveHelper extends BleBaseHelper {
                             esimUrlPostListener.profileSuccess(code);
                         }
                     }
-                } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE) {
-                    //激活结果
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE) {//激活结果
+                    esimActiveCallback.notifyCallback(data);
                     if (data.length > 7) {
                         boolean moduleId = data[5] == (byte) 0x30;
                         boolean eventId = data[6] == (byte) 0x08;
@@ -244,9 +260,31 @@ public class ESimActiveHelper extends BleBaseHelper {
                                 //激活失败
                                 code = -1;
                             }
-                            esimActiveCallback.activeResult(code == 0 );
+                            esimActiveCallback.activeResult(code == 0);
                         }
                     }
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_UNACTIVE) {//去活结果
+                    esimActiveCallback.notifyCallback(data);
+                    if (data.length > 7) {
+                        boolean moduleId = data[5] == (byte) 0x30;
+                        boolean eventId = data[6] == (byte) 0x09;
+                        if (moduleId && eventId) {
+                            int code = 0;//去活成功
+                            if (data[data.length - 1] != 0) {
+                                //去活失败
+                                code = -1;
+                            }
+                            esimCancelCallback.cancelResult(code == 0);
+                        }
+                    }
+                } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_URL) {//设置url的ack包
+                    if (data.length > 7) {
+                        if (data[data.length - 1] == 0) { //成功回复,开始设置url
+                            handler.sendEmptyMessageDelayed(PREPARE_URL_TRANSFORM, 20);
+                        }
+                    }
+                } else if (CURRENT_ACTION == BEGIN_URL_TRANSFORM) {
+                    esimActiveCallback.notifyCallback(data);
                 }
             }
         }
@@ -280,6 +318,7 @@ public class ESimActiveHelper extends BleBaseHelper {
         @Override
         public void onDisconnect(boolean isActiveDisConnected, BleDevice device, BluetoothGatt gatt) {
             Log.e("disConn---", device + "/" + isActiveDisConnected);
+            notifyOpen = false;
         }
     };
 
@@ -298,6 +337,50 @@ public class ESimActiveHelper extends BleBaseHelper {
         //默认初始化的uuid
         String[] uuids = {"00005500-d102-11e1-9b23-00025b00a5a5", "00005501-d102-11e1-9b23-00025b00a5a5"};
         setService_UUID(serviceUuid == null ? uuids[0] : serviceUuid).setWrite_UUID(writeUuid == null ? uuids[1] : writeUuid).setNotify_UUID(notifyUuid == null ? uuids[1] : notifyUuid);
+    }
+
+    public void setUrl(String url) {
+        if (!TextUtils.isEmpty(url)) {
+            testUrl = url;
+        }
+    }
+
+    private void notifyBesiness() {
+        if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE_FIRST) {
+            currentEventId = (byte) 0x50;
+            writeCharacteristic(bleDevice, OrderSetUtils.ESIM_PROFILE_START, writeListener);
+        } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_ACTIVE) {
+            writeCharacteristic(bleDevice, OrderSetUtils.ESIM_ACTIVE, writeListener);
+        } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_UNACTIVE) {
+            writeCharacteristic(bleDevice, OrderSetUtils.ESIM_CANCEL, writeListener);
+        } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_URL) {
+            handler.sendEmptyMessageDelayed(PREPARE_URL_TRANSFORM, 20);
+        }
+    }
+
+    private void prepare(byte[] data) {
+
+        if (bleDevice == null) {
+            BleDevice device = getConnectDevice(mMac);
+            if (device == null) {
+                if (esimActiveCallback != null) {
+                    esimActiveCallback.deviceNotConnect();
+                }
+                scanAndConnect(true, mMac, "", handleListener);
+            } else {
+                this.bleDevice = device;
+                setNotify(device, notifyListener);
+            }
+        } else {
+            writeCharacteristic(bleDevice, data, writeListener);
+        }
+    }
+
+    public void setSMDPUrl(String mac) {
+        this.mMac = mac;
+        CURRENT_ACTION = ActionUtils.ACTION_ESIM_URL;
+        byte[] urlHeadByte = DataPacketUtils.frameHeadBytes(OrderSetUtils.ESIM_SM_DP, testUrl.getBytes(), 1, 1);
+        prepare(urlHeadByte);
     }
 
     /**
@@ -319,7 +402,11 @@ public class ESimActiveHelper extends BleBaseHelper {
                 scanAndConnect(true, mac, "", handleListener);
             } else {
                 this.bleDevice = device;
-                setNotify(device, notifyListener);
+                if (notifyOpen) {
+                    notifyBesiness();
+                } else {
+                    setNotify(device, notifyListener);
+                }
             }
         }
     }
@@ -380,11 +467,36 @@ public class ESimActiveHelper extends BleBaseHelper {
                 }
                 scanAndConnect(true, mac, "", handleListener);
             } else {
+                if (notifyOpen) {
+                    notifyBesiness();
+                } else {
+                    setNotify(device, notifyListener);
+                }
+            }
+        } else {
+            writeCharacteristic(bleDevice, OrderSetUtils.ESIM_ACTIVE, writeListener);
+        }
+    }
+
+    /**
+     * 去活,取消esim激活状态
+     */
+    public void esimCancel(String mac) {
+        this.mMac = mac;
+        CURRENT_ACTION = ActionUtils.ACTION_ESIM_UNACTIVE;
+        if (bleDevice == null) {
+            BleDevice device = getConnectDevice(mac);
+            if (device == null) {
+                if (esimActiveCallback != null) {
+                    esimActiveCallback.deviceNotConnect();
+                }
+                scanAndConnect(true, mac, "", handleListener);
+            } else {
                 this.bleDevice = device;
                 setNotify(device, notifyListener);
             }
         } else {
-            writeCharacteristic(bleDevice, OrderSetUtils.ESIM_ACTIVE, writeListener);
+            writeCharacteristic(bleDevice, OrderSetUtils.ESIM_CANCEL, writeListener);
         }
     }
 
@@ -413,5 +525,9 @@ public class ESimActiveHelper extends BleBaseHelper {
      */
     public void setEsimActiveCallback(EsimActiveCallback esimActiveCallback) {
         this.esimActiveCallback = esimActiveCallback;
+    }
+
+    public void setEsimCancelCallback(EsimCancelCallback esimCancelCallback) {
+        this.esimCancelCallback = esimCancelCallback;
     }
 }

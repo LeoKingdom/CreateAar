@@ -21,6 +21,7 @@ import com.ly.bluetoothhelper.callbacks.base_callback.ReadRssiCallback;
 import com.ly.bluetoothhelper.callbacks.base_callback.ScanCallback;
 import com.ly.bluetoothhelper.callbacks.base_callback.ScanConnectCallback;
 import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
+import com.ly.bluetoothhelper.utils.Utils;
 
 import java.util.List;
 import java.util.Set;
@@ -49,7 +50,20 @@ import fastble.utils.BleLog;
  * 蓝牙辅助基类
  */
 public abstract class BleBaseHelper {
-
+    public static final String BLE_SCAN_START = "ble.scan.start";
+    public static final String BLE_SCAN_FINISH = "ble.scan.finish";
+    public static final String BLE_CONNECT_SUCCESS = "ble.conn.success";
+    public static final String BLE_RECONNECT_SUCCESS = "ble.reconn.success";
+    public static final String BLE_CONNECT_FAIL = "ble.conn.fail";
+    public static final String BLE_DISCONNECT = "ble.disconnect";
+    public static final String BLE_NOT_FOUND = "ble.not.found";
+    public static final int BLE_SCAN_START_I = 0x1001;
+    public static final int BLE_SCAN_FINISH_I = 0x1002;
+    public static final int BLE_CONNECT_SUCCESS_I = 0x1003;
+    public static final int BLE_CONNECT_FAIL_I = 0x1004;
+    public static final int BLE_DISCONNECT_I = 0x1005;
+    public static final int BLE_NOT_FOUND_I = 0x1006;
+    public static final int START_TIMER = 0;
     private BleManager bleManager;
     private long scanTimeout = 10000;
     private String service_uuid;
@@ -248,6 +262,11 @@ public abstract class BleBaseHelper {
     }
 
 
+    /**
+     * 根据蓝牙地址判断设备是否已配对(绑定)
+     * @param mac 蓝牙地址
+     * @return
+     */
     public boolean isBonded(String mac){
         Set<BluetoothDevice> bondList = bleManager.getBondDeviceList();
         for (BluetoothDevice bluetoothDevice:bondList){
@@ -256,6 +275,19 @@ public abstract class BleBaseHelper {
             }
         }
         return false;
+    }
+
+    /**
+     * 取消配对
+     * @param mac 蓝牙地址
+     */
+    public void unBondDevice(String mac){
+        Set<BluetoothDevice> bondList = bleManager.getBondDeviceList();
+        for (BluetoothDevice bluetoothDevice:bondList){
+            if (bluetoothDevice.getAddress().equalsIgnoreCase(mac)){
+                Utils.unpairDevice(bluetoothDevice);
+            }
+        }
     }
 
     /**
@@ -585,7 +617,7 @@ public abstract class BleBaseHelper {
      * @param rssi 设备的rssi值
      * @return 返回距离
      */
-    protected double getDistance(int rssi) {
+    public double getDistance(int rssi) {
         int iRssi = Math.abs(rssi);
         double power = (iRssi - 72) / (10 * 2.0);
         return Math.pow(10, power);

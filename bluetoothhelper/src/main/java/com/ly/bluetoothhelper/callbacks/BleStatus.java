@@ -13,7 +13,8 @@ import android.support.annotation.StringDef;
 @IntDef(flag = true, value = {BleStatus.BLE_DISABLE, BleStatus.BLE_GPS_FORCE_OPEN, BleStatus.BLE_LOCATION_DISABLE, BleStatus.BLE_NOT_SURPPORT
         , BleStatus.BLE_PERMISSION_GRANT, BleStatus.BLE_REMOTE_DISABLE, BleStatus.BLE_SCAN_AND_CONNECT, BleStatus.BLE_TRACKER_IN,
         BleStatus.BLE_TRACKER_NOT_FOUND, BleStatus.BLE_TRACKER_OUT, BleStatus.BLE_VIRTUAL_LEASH_OPEN_DIALOG, BleStatus.BLE_CONNECT_FAIL_I,
-        BleStatus.BLE_CONNECT_SUCCESS_I, BleStatus.BLE_DISCONNECT_I, BleStatus.BLE_NOT_FOUND_I, BleStatus.BLE_SCAN_FINISH_I, BleStatus.BLE_SCAN_START_I})
+        BleStatus.BLE_CONNECT_SUCCESS_I, BleStatus.BLE_DISCONNECT_I, BleStatus.BLE_NOT_FOUND_I, BleStatus.BLE_SCAN_FINISH_I, BleStatus.BLE_SCAN_START_I,
+BleStatus.BISINESS_TRACKER,BleStatus.BISINESS_TRACKER_ESIM,BleStatus.BISINESS_TRACKER_LOCATION,BleStatus.BISINESS_TRACKER_UPGRADE})
 @StringDef(value = {BleStatus.BLE_CONNECT_FAIL, BleStatus.BLE_CONNECT_SUCCESS, BleStatus.BLE_DISCONNECT, BleStatus.BLE_NOT_FOUND, BleStatus.BLE_SCAN_FINISH, BleStatus.BLE_SCAN_START})
 public @interface BleStatus {
     int BLE_DISABLE = 0x2001; //手机端蓝牙未打开
@@ -33,6 +34,10 @@ public @interface BleStatus {
     int BLE_CONNECT_FAIL_I = 0x1004;
     int BLE_DISCONNECT_I = 0x1005;
     int BLE_NOT_FOUND_I = 0x1006;
+    int BISINESS_TRACKER = 0x1007;
+    int BISINESS_TRACKER_LOCATION = 0x1008;
+    int BISINESS_TRACKER_UPGRADE = 0x1009;
+    int BISINESS_TRACKER_ESIM = 0x1010;
     String BLE_SCAN_START = "ble.scan.start";
     String BLE_SCAN_FINISH = "ble.scan.finish";
     String BLE_CONNECT_SUCCESS = "ble.conn.success";

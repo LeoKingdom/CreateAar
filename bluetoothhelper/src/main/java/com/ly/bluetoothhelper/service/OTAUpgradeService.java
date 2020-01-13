@@ -14,9 +14,9 @@ import android.widget.Toast;
 
 import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.beans.TransfirmDataBean;
-import com.ly.bluetoothhelper.callbacks.DataCallback;
-import com.ly.bluetoothhelper.callbacks.NotifyCallback;
-import com.ly.bluetoothhelper.callbacks.ProgressCallback;
+import com.ly.bluetoothhelper.callbacks.upgrade_callback.DataCallback;
+import com.ly.bluetoothhelper.callbacks.upgrade_callback.NotifyCallback;
+import com.ly.bluetoothhelper.callbacks.upgrade_callback.ProgressCallback;
 import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
 import com.ly.bluetoothhelper.helper.BleConnectHelper;
 import com.ly.bluetoothhelper.helper.BluetoothHelper;
@@ -306,7 +306,7 @@ public class OTAUpgradeService extends Service {
         if (bleDevice == null) {
             toast("设备未连接");
             if (notifyCallback != null) {
-                notifyCallback.noDevice();
+                notifyCallback.deviceNotConnect();
             }
             return;
         }
@@ -324,7 +324,7 @@ public class OTAUpgradeService extends Service {
                     handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_ORDER_I, 3000);
                 }
                 if (notifyCallback != null) {
-                    notifyCallback.success();
+                    notifyCallback.onNext();
                 }
 
             }
@@ -332,7 +332,7 @@ public class OTAUpgradeService extends Service {
             @Override
             public void onNotifyFailed(BleException exception) {
                 if (notifyCallback != null) {
-                    notifyCallback.fail(exception.getDescription());
+                    notifyCallback.error(exception.getDescription());
                 }
             }
 
@@ -340,7 +340,7 @@ public class OTAUpgradeService extends Service {
             public void onCharacteristicChanged(String mac,byte[] data) {
                 Log.e("notifyData----", TransformUtils.bytesToHexString(data));
                 if (notifyCallback != null) {
-                    notifyCallback.charactoristicChange(CURRENT_ACTION, data);
+                    notifyCallback.characteristicChange(CURRENT_ACTION, data);
                 }
                 if (data.length > 3) {
                     byte responeByte = data[data.length - 1];

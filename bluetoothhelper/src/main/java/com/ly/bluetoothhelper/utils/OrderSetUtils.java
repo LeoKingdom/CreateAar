@@ -42,10 +42,10 @@ public class OrderSetUtils {
     public static final byte[] ESIM_ACTIVE={-85,0,0,0,0,48,8}; //激活ESIM指令
     public static final byte[] ESIM_CANCEL={-85,0,0,0,0,48,9}; //去活ESIM指令
     public static final byte[] ESIM_PROFILE_DELETE={-85,0,0,0,0,48,10}; //删除Profile指令
-    public static final byte[] ESIM_SET_NICKNAME={-85,0,0,0,0,48,12}; //设置ESIM昵称指令
-    public static final byte[] ESIM_SERVER_DOMAIN={-85,0,0,0,0,48,13}; //获取服务器地址指令
-    public static final byte[] ESIM_SM_DP={-85,0,0,0,0,48,14}; //设置SM-DP地址指令
-    public static final byte[] ESIM_SMDS={-85,0,0,0,0,48,15}; //设置SMDS地址指令
+    public static final byte[] ESIM_SET_NICKNAME={-85,0,0,0,0,48,11}; //设置ESIM昵称指令
+    public static final byte[] ESIM_SERVER_DOMAIN={-85,0,0,0,0,48,12}; //获取服务器地址指令
+    public static final byte[] ESIM_SM_DP={-85,0,0,0,0,48,13}; //设置SM-DP地址指令
+    public static final byte[] ESIM_SMDS={-85,0,0,0,0,48,14}; //设置SMDS地址指令
 //    public static final byte[] ORDER_NOTICE_DELETE={-85,0,0,0,0,48,13}; //删除通知指令
 //    public static final byte[] ORDER_ESIM_RESTORE={-85,0,0,0,0,48,14}; //恢复ESIM出厂设置指令
 

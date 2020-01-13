@@ -228,6 +228,13 @@ public class DataPacketUtils {
         return lengthByte;
     }
 
+    public static byte[] frameHeadBytes(byte[] headData,byte[] data,int totalFrame,int currFrame){
+        byte[] firstByte=dataLenght(data.length);
+        byte[] middleByte=new byte[]{(byte)totalFrame,(byte)currFrame};
+        byte[] endByte=new byte[]{headData[headData.length-2],headData[headData.length-1]};
+        return TransformUtils.combineArrays(firstByte,middleByte,endByte);
+    }
+
     public static byte[] frameBytes(int totalFrame, int currFrame) {
         byte[] frameByte = new byte[2];
         frameByte[0] = TransformUtils.int2byte(totalFrame);

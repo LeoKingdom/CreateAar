@@ -148,7 +148,6 @@ public class BleScanner {
             }
             return;
         }
-        Log.e("hashcode-----",mBleScanPresenter.hashCode()+"/"+imp.hashCode());
         mBleScanPresenter.prepare(names, mac, fuzzy, needConnect, timeOut, imp);
 
         boolean success = BleManager.getInstance().getBluetoothAdapter()
