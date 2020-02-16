@@ -87,6 +87,7 @@ public class UpgradeActivity extends FragmentActivity implements VMUpgradeDialog
     private Button otaBtn;
     private Button gtBtn;
     private boolean isBond = false;
+    private String testMac="88:9e:33:ee:a7:93";
     //与service之间的各种消息回调
     @SuppressLint("HandlerLeak")
     private Handler mHandler = new Handler() {
@@ -396,7 +397,7 @@ public class UpgradeActivity extends FragmentActivity implements VMUpgradeDialog
     private void setCallback() {
         otaUpgradeService1.setNotifyCallback(new NotifyCallback() {
             @Override
-            public void charactoristicChange(int action, byte[] backBytes) {
+            public void characteristicChange(int action, byte[] backBytes) {
                 String callback = TransformUtils.bytesToHexString(backBytes);
                 showTxt.setText(callback + "");
             }
@@ -608,11 +609,11 @@ public class UpgradeActivity extends FragmentActivity implements VMUpgradeDialog
     public void connect(View view) {
         String macAddress = macEt.getText().toString().trim();
         if (TextUtils.isEmpty(macAddress)) {
-            macAddress = "88:9E:33:EE:A7:93";
+            macAddress = testMac;
 //            macAddress = "01:02:04:05:06:09";
         }
         if (isBond) {
-            otaUpgradeService1.handleConnect("88:9e:33:ee:a7:93");
+            otaUpgradeService1.handleConnect(testMac);
 //            otaUpgradeService1.scanAndConn(macAddress);
         } else {
             bindMyService(macAddress);

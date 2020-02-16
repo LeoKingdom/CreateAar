@@ -16,6 +16,7 @@ import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimActiveCallback;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimCancelCallback;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimDataCallback;
+import com.ly.bluetoothhelper.callbacks.esim_callback.EsimProfileDeleteCallback;
 import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.CRCCheckUtils;
 import com.ly.bluetoothhelper.utils.DataPacketUtils;
@@ -64,6 +65,7 @@ public class ESimActiveHelper extends BleBaseHelper {
     private boolean notifyOpen = false;
     private EsimActiveCallback esimActiveCallback;
     private EsimCancelCallback esimCancelCallback;
+    private EsimProfileDeleteCallback esimProfileDeleteCallback;
     private EsimDataCallback.EsimUrlListener esimUrlListener;
     private EsimDataCallback.EsimUrlPostListener esimUrlPostListener;
     //    private String testUrl = "1$oemgsma-lpa-json.demo.gemalto.com$DD6036B4D647DAC642BFCE7A73490CBFEF46904605EBED7572BBABD5AEA44185";
@@ -285,6 +287,20 @@ public class ESimActiveHelper extends BleBaseHelper {
                     }
                 } else if (CURRENT_ACTION == BEGIN_URL_TRANSFORM) {
                     esimActiveCallback.notifyCallback(data);
+                }else if (CURRENT_ACTION==ActionUtils.ACTION_ESIM_PROFILE_DELETE){
+                    esimActiveCallback.notifyCallback(data);
+                    if (data.length > 7) {
+                        boolean moduleId = data[5] == (byte) 0x30;
+                        boolean eventId = data[6] == (byte) 0x0A;
+                        if (moduleId && eventId) {
+                            int code = 0;//去活成功
+                            if (data[data.length - 1] != 0) {
+                                //去活失败
+                                code = -1;
+                            }
+                            esimProfileDeleteCallback.deleteResult(code == 0);
+                        }
+                    }
                 }
             }
         }
@@ -355,6 +371,8 @@ public class ESimActiveHelper extends BleBaseHelper {
             writeCharacteristic(bleDevice, OrderSetUtils.ESIM_CANCEL, writeListener);
         } else if (CURRENT_ACTION == ActionUtils.ACTION_ESIM_URL) {
             handler.sendEmptyMessageDelayed(PREPARE_URL_TRANSFORM, 20);
+        }else if (CURRENT_ACTION==ActionUtils.ACTION_ESIM_PROFILE_DELETE){
+            writeCharacteristic(bleDevice, OrderSetUtils.ESIM_PROFILE_DELETE, writeListener);
         }
     }
 
@@ -374,6 +392,12 @@ public class ESimActiveHelper extends BleBaseHelper {
         } else {
             writeCharacteristic(bleDevice, data, writeListener);
         }
+    }
+
+    public void deleteProfile(String mac){
+        this.mMac=mac;
+        CURRENT_ACTION=ActionUtils.ACTION_ESIM_PROFILE_DELETE;
+        prepare(OrderSetUtils.ESIM_PROFILE_DELETE);
     }
 
     public void setSMDPUrl(String mac) {
@@ -529,5 +553,9 @@ public class ESimActiveHelper extends BleBaseHelper {
 
     public void setEsimCancelCallback(EsimCancelCallback esimCancelCallback) {
         this.esimCancelCallback = esimCancelCallback;
+    }
+
+    public void setEsimProfileDeleteCallback(EsimProfileDeleteCallback esimProfileDeleteCallback) {
+        this.esimProfileDeleteCallback = esimProfileDeleteCallback;
     }
 }

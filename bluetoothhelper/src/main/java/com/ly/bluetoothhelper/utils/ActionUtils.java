@@ -52,5 +52,6 @@ public class ActionUtils {
     public static final int ACTION_ESIM_ACTIVE=23; //激活esim,真正激活
     public static final int ACTION_ESIM_UNACTIVE=24; //去活esim
     public static final int ACTION_ESIM_URL=25; //设置激活esim的url
+    public static final int ACTION_ESIM_PROFILE_DELETE = 26; //删除下载的 profile
     //---------------------------------Esim激活action end ------------------------------
 }

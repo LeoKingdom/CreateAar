@@ -396,7 +396,7 @@ public class UpgradeTestActivity extends FragmentActivity implements VMUpgradeDi
     private void setCallback() {
         otaUpgradeService1.setNotifyCallback(new NotifyCallback() {
             @Override
-            public void charactoristicChange(int action, byte[] backBytes) {
+            public void characteristicChange(int action, byte[] backBytes) {
                 String callback = TransformUtils.bytesToHexString(backBytes);
                 showTxt.setText(callback + "");
             }

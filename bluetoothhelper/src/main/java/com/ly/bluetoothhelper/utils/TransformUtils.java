@@ -231,4 +231,20 @@ public class TransformUtils {
         return c;
     }
 
+    public static byte[] string2ByteArray(String arrayString){
+        if (arrayString.contains("[")&&arrayString.contains(",")){
+            arrayString=arrayString.substring(1,arrayString.length()-1);
+            String[] strArray=arrayString.split(",");
+            byte[] array=new byte[strArray.length];
+            for (int i=0;i<strArray.length;i++){
+                String s=strArray[i];
+                if (s.contains(" ")) s=s.replace(" ","");
+                int b = Integer.parseInt(s);
+                array[i]= (byte) b;
+            }
+            return array;
+        }
+        return null;
+    }
+
 }

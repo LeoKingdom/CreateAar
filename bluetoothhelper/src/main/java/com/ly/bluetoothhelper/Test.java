@@ -5,6 +5,7 @@ import android.util.Log;
 import com.ly.bluetoothhelper.utils.DataPacketUtils;
 import com.ly.bluetoothhelper.utils.TransformUtils;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 
 /**
@@ -14,14 +15,15 @@ import java.util.Arrays;
  * version: 1.0
  */
 public class Test {
+    public static final byte[] ORDER_OAD_DATA_SEND={-85,0,0,0,0,32,3};
     public static void main(String[] args){
-        int num=0;
-        if (num<16){
-
+        String byteString=Arrays.toString(ORDER_OAD_DATA_SEND);
+        byte[] a = TransformUtils.string2ByteArray(byteString);
+        for (Byte b:a){
+            System.out.println(b);
         }
-        byte[] testBytes=TransformUtils.int2TwoBytes(500);
-        System.out.println("code---"+TransformUtils.byte2Int((byte) 0x84));
-        System.out.println("code---1="+TransformUtils.bytes2String(testBytes));
+        System.out.println("code---"+byteString);
+        System.out.println("code---1="+TransformUtils.string2ByteArray(byteString));
 //        System.out.println(Arrays.toString(DataPacketUtils.eachFrameFirstPacket(4096,1,1)));
     }
 }

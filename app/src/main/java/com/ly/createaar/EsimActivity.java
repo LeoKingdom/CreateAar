@@ -16,6 +16,7 @@ import com.ly.bluetoothhelper.beans.MsgBean;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimActiveCallback;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimCancelCallback;
 import com.ly.bluetoothhelper.callbacks.esim_callback.EsimDataCallback;
+import com.ly.bluetoothhelper.callbacks.esim_callback.EsimProfileDeleteCallback;
 import com.ly.bluetoothhelper.helper.ESimActiveHelper;
 import com.ly.bluetoothhelper.utils.ActionUtils;
 import com.ly.bluetoothhelper.utils.RetrofitWithCerUtils;
@@ -53,6 +54,7 @@ public class EsimActivity extends FragmentActivity  {
     private String mUrl;
     private LoadingWidget loadingWidget;
     private EditText urlInput;
+    private String testMac="88:9E:33:EE:A7:8A";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -138,7 +140,18 @@ public class EsimActivity extends FragmentActivity  {
                     toast("profile下载成功");
                 } else {
                     toast("profile下载失败");
-                    loadingWidget.hide();
+                }
+            }
+        });
+
+        eSimHelper.setEsimProfileDeleteCallback(new EsimProfileDeleteCallback() {
+            @Override
+            public void deleteResult(boolean isActivated) {
+                loadingWidget.hide();
+                if (isActivated) {
+                    toast("profile删除成功");
+                } else {
+                    toast("profile删除失败");
                 }
             }
         });
@@ -177,12 +190,17 @@ public class EsimActivity extends FragmentActivity  {
         eSimHelper.setUrl(url);
     }
 
+    public void deleteProfile(View view){
+        loadingWidget.show();
+        eSimHelper.deleteProfile(testMac);
+    }
+
     /**
      * 设置激活的运营商(服务器)url
      * @param view
      */
     public void setUrl(View view){
-        eSimHelper.setSMDPUrl("88:9E:33:EE:A7:93");
+        eSimHelper.setSMDPUrl(testMac);
     }
 
     /**
@@ -191,7 +209,7 @@ public class EsimActivity extends FragmentActivity  {
      * @param view
      */
     public void notifyEsim(View view) {
-        eSimHelper.esimActive("88:9E:33:EE:A7:93");
+        eSimHelper.esimActive(testMac);
     }
     /**
      *
@@ -199,7 +217,7 @@ public class EsimActivity extends FragmentActivity  {
      * @param view
      */
     public void cancelEsim(View view) {
-        eSimHelper.esimCancel("88:9E:33:EE:A7:93");
+        eSimHelper.esimCancel(testMac);
     }
     /**
      * 准备profile
@@ -208,7 +226,7 @@ public class EsimActivity extends FragmentActivity  {
     public void activeEsim(View view) {
         loadingWidget.setLoadingText("Loading...");
         loadingWidget.show();
-        eSimHelper.esimActiveFirst("88:9E:33:EE:A7:93");
+        eSimHelper.esimActiveFirst(testMac);
     }
 
     private void postToServer(String json) {

@@ -9,6 +9,8 @@ import com.ly.bluetoothhelper.callbacks.BaseBleCallback;
  * version: 1.0
  */
 public abstract class ProgressCallback extends BaseBleCallback {
-    public abstract void setMax(int max);
-    public abstract void setProgress(float progress,int currentPacket,int totalFrame,int currentFrame,int currentBin,int totalBin);
+    public  void setMax(int max){}
+    public  void setProgress(float progress,int currentPacket,int totalFrame,int currentFrame,int currentBin,int totalBin){}
+    public void setMaxFrame(int maxFrame){}
+    public void setFrameProgress(float frameProgress,int totalFrame,int currentFrame,int currentBin,int totalBin){}
 }

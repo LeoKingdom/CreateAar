@@ -12,7 +12,7 @@ import java.util.Set;
  * version: 1.0
  */
 public class SharePreferenceUtils {
-    private static final String SP_NAME = "SP_PRE";
+    private static final String SP_NAME = "SP_PRE_BLE";
 
     public static boolean setValue(Context context, String key, Object value) {
         SharedPreferences.Editor sp = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit();

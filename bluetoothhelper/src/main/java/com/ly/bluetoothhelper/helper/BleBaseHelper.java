@@ -63,6 +63,7 @@ public abstract class BleBaseHelper {
     public static final int BLE_CONNECT_FAIL_I = 0x1004;
     public static final int BLE_DISCONNECT_I = 0x1005;
     public static final int BLE_NOT_FOUND_I = 0x1006;
+    public static final int BLE_RECONNECT_SUCCESS_I = 0x1007;
     public static final int START_TIMER = 0;
     private BleManager bleManager;
     private long scanTimeout = 10000;
