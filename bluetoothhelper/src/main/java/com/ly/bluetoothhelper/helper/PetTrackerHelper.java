@@ -36,7 +36,7 @@ import fastble.utils.BleLog;
  * date: 2019/6/5 10:25
  * version: 1.0
  */
-public class PetTrackerHelper extends BleBaseHelper{
+public class PetTrackerHelper extends BleBaseHelper {
     //action String
     private static final String TAG = "BluetoothService";
     private static final int BASE_SCAN_TIME = 10000;
@@ -111,17 +111,19 @@ public class PetTrackerHelper extends BleBaseHelper{
      */
     private WriteFailListener writeFailListener;
 
-    private ConnectCallback connectCallback=new ConnectCallback() {
+    private ConnectCallback connectCallback = new ConnectCallback() {
         @Override
         public void onConnectSuccess(BleDevice bleDevice, BluetoothGatt gatt) {
-            if (isReConnectDevice(bleDevice.getMac())) {
-                getReconnectSuccessNext(bleDevice);
-            } else {
-                getConnectSuccessNext(bleDevice, gatt);
+            if (bleDevice != null) {
+                if (isReConnectDevice(bleDevice.getMac())) {
+                    getReconnectSuccessNext(bleDevice);
+                } else {
+                    getConnectSuccessNext(bleDevice, gatt);
+                }
+                addConnectDevice(bleDevice.getMac(), bleDevice);//加入已连接的列表中
+                removeReConnectDevice(bleDevice.getMac());//从断开连接的列表中移除
+                readRssi();//读rssi
             }
-            addConnectDevice(bleDevice.getMac(), bleDevice);//加入已连接的列表中
-            removeReConnectDevice(bleDevice.getMac());//从断开连接的列表中移除
-            readRssi();//读rssi
         }
 
         @Override
@@ -177,19 +179,28 @@ public class PetTrackerHelper extends BleBaseHelper{
     public void init() {
         //默认初始化的uuid
         String[] uuids = {"00005500-d102-11e1-9b23-00025b00a5a5", "00005501-d102-11e1-9b23-00025b00a5a5"};
-        setService_UUID( uuids[0] ).setWrite_UUID(uuids[1] ).setNotify_UUID(uuids[1] );
+        setService_UUID(uuids[0]).setWrite_UUID(uuids[1]).setNotify_UUID(uuids[1]);
     }
 
 
     /**
      * 设置tracker允许离开最大距离
      *
-     * @param maxDistance    最大连接距离
+     * @param maxDistance 最大连接距离
      * @return
      */
-    public PetTrackerHelper init( double maxDistance) {
+    public PetTrackerHelper init(double maxDistance) {
         this.maxDistance = maxDistance;
         return this;
+    }
+
+    /**
+     * 清楚定时器
+     * 销毁handler
+     */
+    public void destroyHelper() {
+        clearRssiTimer();
+        cancelHandler();
     }
 
     /**
@@ -246,7 +257,7 @@ public class PetTrackerHelper extends BleBaseHelper{
                         }
 
                     }
-                }catch (Exception e){
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
@@ -272,7 +283,7 @@ public class PetTrackerHelper extends BleBaseHelper{
         });
     }
 
-    public void closeNotify(BleDevice device){
+    public void closeNotify(BleDevice device) {
         super.closeNotify(device);
     }
 
@@ -349,6 +360,7 @@ public class PetTrackerHelper extends BleBaseHelper{
      * @param delaymiillis 延时时间
      */
     private void startReconnect(String address, long delaymiillis) {
+        if (reConnHandler==null) return;
         Message message = reConnHandler.obtainMessage(START_TIMER);
         message.obj = address;
         reConnHandler.sendMessageDelayed(message, delaymiillis);
@@ -356,7 +368,8 @@ public class PetTrackerHelper extends BleBaseHelper{
 
     public void cancelHandler() {
         if (reConnHandler != null) {
-            reConnHandler.removeCallbacks(null);
+            reConnHandler.removeCallbacksAndMessages(null);
+            reConnHandler = null;
         }
     }
 

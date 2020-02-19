@@ -122,7 +122,7 @@ public class ProgressDialogWidget extends RelativeLayout {
      * 单选：只有tvOk可以用
      */
     public void setSingleChoice(){
-        tvSplit.setVisibility(GONE);
+        tvSplit.setVisibility(VISIBLE);
         tvCancel.setVisibility(GONE);
         tvOk.setVisibility(VISIBLE);
     }

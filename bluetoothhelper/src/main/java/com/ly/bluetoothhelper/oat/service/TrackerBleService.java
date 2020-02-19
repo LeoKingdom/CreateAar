@@ -13,19 +13,17 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
 import android.util.Log;
 
-import com.ly.bluetoothhelper.beans.MsgBean;
+import com.ly.bluetoothhelper.callbacks.base_callback.NotifyOpenCallback;
+import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
 import com.ly.bluetoothhelper.callbacks.upgrade_callback.DataCallback;
 import com.ly.bluetoothhelper.callbacks.upgrade_callback.NotifyCallback;
 import com.ly.bluetoothhelper.callbacks.upgrade_callback.ProgressCallback;
-import com.ly.bluetoothhelper.callbacks.base_callback.NotifyOpenCallback;
-import com.ly.bluetoothhelper.callbacks.base_callback.WriteCallback;
 import com.ly.bluetoothhelper.callbacks.upgrade_callback.UpgradeStatusCallback;
 import com.ly.bluetoothhelper.helper.PetTrackerHelper;
 import com.ly.bluetoothhelper.oat.annotation.ConfirmationType;
@@ -52,8 +50,6 @@ import com.ly.bluetoothhelper.utils.TransformUtils;
 import com.ly.bluetoothhelper.utils.Utils;
 
 import org.greenrobot.eventbus.EventBus;
-import org.greenrobot.eventbus.Subscribe;
-import org.greenrobot.eventbus.ThreadMode;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -221,7 +217,11 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
     private int totalPackets;//总包数(所有文件)
     private boolean isTest = false;
     private int transforPacket;//当前传输的总包数,用来计算进度
-    private int currPackets=0; //当前帧的总包数,用来记录断点
+    private int currTotalPackets = 0; //当前帧的总包数,用来记录断点
+    private int allTotleFrame = 0;
+    private int allCurrentFrame = 0;
+    private byte[] frameHeadBytes;
+    private String frameHeadBytesStr;
     //fota升级handler,各种业务转换
     @SuppressLint("HandlerLeak")
     private Handler handler = new Handler() {
@@ -237,10 +237,7 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
                         }
                     }
                     getDataBytes(currentBin);
-                    if (isTest) {
-                        writeBytes(initialTotalBytes);
-                    }
-//                    openNotify();
+
                     break;
 
                 case ActionUtils.ACTION_OTA_ORDER_I: //发送ota升级命令(含校验bin的合法性)
@@ -263,9 +260,12 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
                     if (initialTotalBytes.length > 13) {
                         byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
                         byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
+                        frameHeadBytesStr = Arrays.toString(dataHeadBytes);
                         writeBytes(dataHeadBytes);
                     } else {
-                        writeBytes(DataPacketUtils.eachFrameBytes(initialTotalBytes));
+                        byte[] fBytes = DataPacketUtils.eachFrameBytes(initialTotalBytes);
+                        frameHeadBytesStr = Arrays.toString(fBytes);
+                        writeBytes(fBytes);
                     }
                     break;
 
@@ -280,23 +280,20 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
 
                 case ActionUtils.ACTION_OTA_DATA_DATA_I: //发送ota数据帧
                     CURRENT_ACTION = ActionUtils.ACTION_OTA_DATA_DATA_I;
-                    Log.e("frame----", currentFrame + "/" + totalFrame);
+                    Log.e("frame----", currentFrame + "/" + totalFrame+"/"+currentBin);
                     if (progressCallback != null && currentBin == 1 && currentFrame == 1) {
                         progressCallback.setMax(totalPackets); //设置进度最大值,回调
+                        progressCallback.setMaxFrame(allTotleFrame);
                     }
                     if (currentFrame <= totalFrame) {
+                        allCurrentFrame++;
+                        float framePercent = (float) allCurrentFrame / allCurrentFrame * 100;
+                        progressCallback.setFrameProgress(framePercent, allTotleFrame, allCurrentFrame, currentBin, fileNameList.size());
                         currentFrameBytes = DataPacketUtils.sortEachFrame(initialTotalBytes, currentFrame, totalFrame);
-                       int currentTotalPackets = currentFrameBytes.length % 20 == 0 ? currentFrameBytes.length / 20 : currentFrameBytes.length / 20 + 1;
+                        int currentTotalPackets = currentFrameBytes.length % 20 == 0 ? currentFrameBytes.length / 20 : currentFrameBytes.length / 20 + 1;
                         Log.e("curr---", currentFrameBytes.length + "/" + currentTotalPackets);
-                        if (isReTransTest && isReconnect) {
-                            int length = currentFrameBytes.length - 20 * currentPacket;
-                            int offSet = currentPacket == 0 ? 0 : currentPacket - 1;
-//                            Log.e("reData----", currentFrameBytes.length + "/" + length + "/" + currentPacket);
-                            byte[] reTransBytes = TransformUtils.subBytes(currentFrameBytes, 20 * offSet, length);
-                            writeOnThread(reTransBytes, true);
-                        } else {
-                            writeOnThread(currentFrameBytes, true);
-                        }
+                        currentTotalPacket = currentTotalPackets;
+                        writeBytes(currentFrameBytes);
                     }
                     break;
                 case ActionUtils.ACTION_OTA_DATA_LOSE_I:
@@ -318,7 +315,6 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
                             }
                             return;
                         }
-                        currPackets=0;
                         currentFrame++;
                         if (currentFrame <= totalFrame) {
                             handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 10);
@@ -347,34 +343,12 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
                     }
                     break;
                 case ActionUtils.ACTION_OTA_RECONNECT_SEND:
-                    //断点(包括断开重传,下一次重传),从当前帧重发(终端还没实现,目前终端实现是在当前传输情况断开进入阻塞,直到接收到下一包数据继续)
-                    String cacheKey = macAddress.replaceAll(":", "");
-                    SharedPreferences preferences = getSharedPreferences("progress_cache", MODE_PRIVATE);
-                    String cache = preferences.getString(cacheKey, "");
-//                    Object cacheOb = SharePreferenceUtils.getValue(OtauBleService.this, cacheKey, null);
-                    if (cache.contains(",")) {
-                        String[] cacheInfos = cache.split(",");
-                        int cb = Integer.valueOf(cacheInfos[0]);//当前bin
-                        int ctf = Integer.valueOf(cacheInfos[1]);//总帧
-                        int cf = Integer.valueOf(cacheInfos[2]);//当前帧
-                        int tpa = Integer.valueOf(cacheInfos[3]);//当前帧总包数
-                        int cpa = Integer.valueOf(cacheInfos[4]);//当前包
-                        Log.e("re_send----", cb + "/" + cf + "/" + cpa);
-                        getDataBytes(cb);
-                        currentFrame = cf;
-                        currentPacket = reCurrentPacket = cpa;
-                        if (isReTransTest) {
-                            if (currentTotalPacket == cpa || cpa > currentTotalPacket) {
-                                currentFrame++;
-                                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 1000);
-                            }
-                            if (cpa < currentTotalPacket) {
-                                handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_DATA_I, 1000);
-                            }
-                        } else {
-                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 1000);
-                        }
-                    }
+                    SharePreferenceUtils.setValue(TrackerBleService.this, macAddress, "");
+                    CURRENT_ACTION = ActionUtils.ACTION_OTA_RECONNECT_SEND;
+                    byte[] curFrameBytes = DataPacketUtils.currentPacket(initialTotalBytes, currentFrame, totalFrame);
+                    byte[] dataHeadBytes = DataPacketUtils.eachFrameFirstPacket(curFrameBytes.length, totalFrame, currentFrame);
+                    dataHeadBytes[6] = (byte) 0x04;
+                    writeBytes(dataHeadBytes);
                     break;
                 case ActionUtils.ACTION_OPEN_NOTIFY:
                     openNotify();
@@ -413,7 +387,7 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
      * 初始化,升级需要用到的各种uuid
      */
     private void initHelper() {
-        EventBus.getDefault().register(this);
+//        EventBus.getDefault().register(this);
         petTrackerHelper = PetTrackerHelper.getInstance(getApplication());
         petTrackerHelper.init(1);
     }
@@ -422,8 +396,39 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
         return handler;
     }
 
-    public void sendMsg(Handler handler, int what, long delayTimes) {
+    public void sendMsg(int what, long delayTimes) {
+        if (handler == null) return;
         handler.sendEmptyMessageDelayed(what, delayTimes);
+    }
+
+    public void setCurrentAction(int action) {
+        this.CURRENT_ACTION = action;
+    }
+
+    public void setResendData() {
+        CURRENT_ACTION = ActionUtils.ACTION_OTA_RECONNECT_SEND;
+        //断点(包括断开重传,下一次重传),从当前帧重发(终端还没实现,目前终端实现是在当前传输情况断开进入阻塞,直到接收到下一包数据继续)
+        String cache = (String) SharePreferenceUtils.getValue(TrackerBleService.this, macAddress, "");
+//                    Object cacheOb = SharePreferenceUtils.getValue(OtauBleService.this, cacheKey, null);
+        if (cache.contains(",")) {
+            String[] cacheInfos = cache.split(",");
+            int att = Integer.valueOf(cacheInfos[0]);//文件所有包数
+            int ctt = Integer.valueOf(cacheInfos[1]);//当前传送的包数(对于所有文件而言)
+            int cfile = Integer.valueOf(cacheInfos[2]);//当前文件
+            int cf = Integer.valueOf(cacheInfos[3]);//当前帧
+            int cfp = Integer.valueOf(cacheInfos[4]);//当前帧总包数
+            Log.e("re_send----", cfp+"/"+att + "/" + cf + "/" + ctt + "/" + cfile);
+            currentBin = cfile;
+            totalPackets=att;
+            transforPacket=ctt;
+            if (progressCallback!=null){
+                progressCallback.setMax(totalPackets);
+            }
+            if (transforPacket > cfp) transforPacket -= cfp;
+            getDataBytes(cfile);
+            currentFrame = cf+1;
+            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_RECONNECT_SEND, 30);
+        }
     }
 
     /**
@@ -454,6 +459,7 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
         petTrackerHelper.writeCharacteristic(bleDevice, Consts.betweenTimes, datas, new WriteCallback() {
             @Override
             public void writeSuccess(int actionType, int current, int total, byte[] justWrite) {
+                Log.e("write----",Arrays.toString(justWrite));
                 if (writeCallback != null) {
                     writeCallback.writeSuccess(CURRENT_ACTION, current, total, justWrite);
                 }
@@ -468,7 +474,6 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
                     } else {
                         currentPacket = current;
                     }
-                    currPackets++;
                     transforPacket++;
                     current = isReconnect ? reCurrentPacket + current : current;
                     total = isReconnect ? reCurrentPacket + total : total;
@@ -566,6 +571,13 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
                             }
                         }
 
+                    } else if (eventId == (byte) 0x04 && moduId == (byte) 0x20) {//重传命令
+                        if (data.length > 8) {
+                            currentBin = data[7];
+                            currentFrame = data[8]+1;
+                            getDataBytes(currentBin);
+                            handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OTA_DATA_HEAD_I, 30);
+                        }
                     }
 
                 }
@@ -580,6 +592,7 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
      */
     public void initData(String unZipPath) {
         int totalBytesLength = 0;//计算总进度使用
+        int totalFrame1 = 0;
         try {
 //            String sdDir = Environment.getExternalStorageDirectory().getAbsolutePath() + "/test-data";
 //            String sdDirSob = Environment.getExternalStorageDirectory().getAbsolutePath() + "/test-data/unzip";
@@ -599,6 +612,12 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
                 FileInputStream file1 = new FileInputStream(new File(filePath));
                 byte[] bytes = TransformUtils.streamToByte(file1);
                 totalBytesLength += bytes.length;
+                if (bytes.length < 4096) {
+                    totalFrame1 = 1;
+                } else {
+                    totalFrame1 = bytes.length % 4096 != 0 ? ((bytes.length / 1024 / 4) + 1) : (bytes.length / 1024 / 4);
+                }
+                allTotleFrame += totalFrame1;
 //                }
             }
 //            Log.e("totalLength==", totalBytesLength + "");
@@ -667,35 +686,27 @@ public class TrackerBleService extends BLEService implements GaiaUpgradeManager.
         handler.sendEmptyMessageDelayed(ActionUtils.ACTION_OPEN_NOTIFY, 50);
     }
 
-    /**
-     * 结合追踪,通过eventbus通知去扫描连接,多出现在传输过程中中断然后重连的情况
-     *
-     * @param action
-     */
-    public void scanToConn(String action, String action1) {
-        MsgBean msgBean = new MsgBean();
-        msgBean.setAction1(action);
-        msgBean.setAction2(action1);
-        EventBus.getDefault().post(msgBean);
-    }
 
     /**
      * 处理eventbus发来的数据,由追踪的service发出
      *
-     * @param msgBean
+     * @param action
      */
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    public void eventBusCall(MsgBean msgBean) {
-        String action = msgBean.getAction1();
-        String action1 = msgBean.getAction2();
+//    @Subscribe(threadMode = ThreadMode.MAIN)
+    public void eventBusCall(String action) {
+//        String action = msgBean.getAction1();
+//        String action1 = msgBean.getAction2();
         if (action != null) {
-            BleDevice device = (BleDevice) msgBean.getObject();
+//            BleDevice device = (BleDevice) msgBean.getObject();
             if (action.equals(PetTrackerHelper.BLE_CONNECT_SUCCESS)) {//连接成功
 
             } else if (action.equals(PetTrackerHelper.BLE_RECONNECT_SUCCESS)) {//重连成功
-
+                CURRENT_ACTION = PetTrackerHelper.BLE_RECONNECT_SUCCESS_I;
+                openNotify();
             } else if (action.equals(PetTrackerHelper.BLE_DISCONNECT)) {//断开连接,需要处理重传的逻辑
-
+                String cache = totalPackets + "," + transforPacket + "," + currentBin + "," + currentFrame + "," + currentTotalPacket;
+                SharePreferenceUtils.setValue(this, macAddress, cache);
+                SharePreferenceUtils.setValue(this, macAddress + "-b", frameHeadBytes);
             }
         }
     }
